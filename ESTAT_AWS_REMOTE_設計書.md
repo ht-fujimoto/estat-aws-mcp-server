@@ -47,18 +47,32 @@
 │                         Kiro Client                          │
 │                    (MCP Protocol Client)                     │
 └──────────────────────────┬──────────────────────────────────┘
-                           │ MCP over HTTP
+                           │
+                           │ MCP over HTTPS
+                           │ (streamable-http transport)
                            │
 ┌──────────────────────────┴──────────────────────────────┐
-│              mcp_aws_wrapper.py                          │
-│         (MCP Protocol → HTTP Bridge)                     │
-│  - initialize, tools/list, tools/call                    │
+│              AWS Application Load Balancer               │
+│     https://estat-mcp.snowmole.co.jp/mcp                │
+│  - SSL/TLS Termination (ACM Certificate)                │
+│  - Health Check                                          │
+│  - Load Balancing                                        │
 └──────────────────────────┬──────────────────────────────┘
-                           │ HTTP REST API
                            │
 ┌──────────────────────────┴──────────────────────────────┐
-│           AWS ECS Fargate (ALB)                          │
-│     estat-mcp-alb-633149734.ap-northeast-1.elb...       │
+│           AWS ECS Fargate (Container)                    │
+│  - Auto Scaling                                          │
+│  - Task Definition                                       │
+│  - Service Discovery                                     │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────┐
+│         server_mcp_streamable.py                         │
+│         (MCP Streamable HTTP Server)                     │
+│  - aiohttp Web Server                                    │
+│  - JSON-RPC 2.0 Handler                                  │
+│  - SSE Stream Support                                    │
+│  - MCP Protocol Implementation                           │
 └──────────────────────────┬──────────────────────────────┘
                            │
 ┌──────────────────────────┴──────────────────────────────┐
@@ -79,42 +93,225 @@
 
 ### レイヤー構造
 
-1. **クライアント層**: Kiro (MCP Client)
-2. **プロトコル変換層**: mcp_aws_wrapper.py
-3. **API層**: AWS ALB + ECS Fargate
-4. **ビジネスロジック層**: EStatAWSServer
-5. **データ層**: e-Stat API, AWS S3, AWS Athena
+1. **クライアント層**: Kiro (MCP Client with streamable-http support)
+2. **ロードバランサー層**: AWS ALB (HTTPS termination)
+3. **コンテナ層**: AWS ECS Fargate (Auto-scaling)
+4. **MCPサーバー層**: server_mcp_streamable.py (aiohttp)
+5. **ビジネスロジック層**: EStatAWSServer
+6. **データ層**: e-Stat API, AWS S3, AWS Athena, AWS Glue
 
 ---
 
 ## コンポーネント構成
 
-### 1. MCPラッパー (`mcp_aws_wrapper.py`)
+### 1. Kiro Client (MCPクライアント)
 
-**役割**: MCPプロトコルとHTTP APIの橋渡し
+**役割**: MCP streamable-httpプロトコルでサーバーと通信
+
+**設定** (.kiro/settings/mcp.json):
+```json
+{
+  "estat-aws-remote": {
+    "transport": "streamable-http",
+    "url": "https://estat-mcp.snowmole.co.jp/mcp",
+    "disabled": false,
+    "autoApprove": [
+      "search_estat_data",
+      "apply_keyword_suggestions",
+      "fetch_dataset_auto",
+      "fetch_large_dataset_complete",
+      "fetch_dataset_filtered",
+      "transform_to_parquet",
+      "load_to_iceberg",
+      "analyze_with_athena",
+      "save_dataset_as_csv",
+      "download_csv_from_s3",
+      "get_csv_download_url"
+    ]
+  }
+}
+```
+
+**通信フロー**:
+```
+1. GET /mcp (SSE接続確立)
+   ↓
+2. POST /mcp (JSON-RPC initialize)
+   ↓
+3. POST /mcp (JSON-RPC tools/list)
+   ↓
+4. POST /mcp (JSON-RPC tools/call)
+   ↓
+5. DELETE /mcp (セッション終了)
+```
+
+### 2. AWS Application Load Balancer
+
+**役割**: HTTPS終端、負荷分散、ヘルスチェック
+
+**設定**:
+- **URL**: https://estat-mcp.snowmole.co.jp
+- **SSL証明書**: AWS Certificate Manager (ACM)
+- **ターゲットグループ**: ECS Fargate タスク
+- **ヘルスチェック**: GET /health
+
+**機能**:
+- SSL/TLS終端
+- HTTP/2サポート
+- WebSocket/SSEサポート
+- 自動スケーリング連携
+
+### 3. AWS ECS Fargate
+
+**役割**: コンテナ実行環境
+
+**タスク定義**:
+```json
+{
+  "family": "estat-mcp-server",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "estat-mcp",
+      "image": "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "ESTAT_APP_ID", "value": "..."},
+        {"name": "S3_BUCKET", "value": "estat-data-lake"},
+        {"name": "AWS_REGION", "value": "ap-northeast-1"},
+        {"name": "PORT", "value": "8080"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/estat-mcp",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+```
+
+**サービス設定**:
+- **デプロイタイプ**: Rolling update
+- **最小ヘルシータスク**: 100%
+- **最大タスク**: 200%
+- **Auto Scaling**: CPU使用率 > 70%で自動スケール
+
+### 4. server_mcp_streamable.py (MCPサーバー)
+
+**役割**: MCP streamable-httpプロトコルの実装
 
 **主要機能**:
 
-- `handle_initialize()`: MCP初期化リクエスト処理
-- `handle_tools_list()`: ツール一覧取得
-- `handle_tools_call()`: ツール実行リクエスト処理
 
-**通信フロー**:
+#### HTTP エンドポイント
+
+**GET /mcp** - SSEストリーム確立
 ```python
-# 標準入出力でMCPリクエストを受信
-for line in sys.stdin:
-    request = json.loads(line)
-    # HTTP APIに変換して転送
-    response = requests.post(f"{API_URL}/execute", json=request)
-    # MCPレスポンスとして返却
-    print(json.dumps(response))
+async def handle_sse_stream(request):
+    response = web.StreamResponse()
+    response.headers['Content-Type'] = 'text/event-stream'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Connection'] = 'keep-alive'
+    
+    await response.prepare(request)
+    
+    # 初期化メッセージ送信
+    initialization_message = "event: connection\ndata: {\"status\": \"ready\"}\n\n"
+    await response.write(initialization_message.encode('utf-8'))
+    
+    # 接続維持
+    while True:
+        await asyncio.sleep(1)
+        if response.transport.is_closing():
+            break
+    
+    return response
 ```
 
-**エンドポイント**:
-- `GET /tools`: ツール一覧取得
-- `POST /execute`: ツール実行
+**POST /mcp** - JSON-RPCメッセージ処理
+```python
+async def handle_jsonrpc_message(data):
+    method = data.get('method')
+    params = data.get('params', {})
+    request_id = data.get('id')
+    
+    if method == 'initialize':
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "estat-aws", "version": "1.0.0"}
+            }
+        }
+    
+    elif method == 'tools/list':
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {"tools": [...]}
+        }
+    
+    elif method == 'tools/call':
+        tool_name = params.get('name')
+        arguments = params.get('arguments', {})
+        
+        # ツール実行
+        tool_handler = TOOLS[tool_name]["handler"]
+        result = await tool_handler(**arguments)
+        
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "content": [
+                    {"type": "text", "text": json.dumps(result)}
+                ]
+            }
+        }
+```
 
-### 2. メインサーバー (`mcp_servers/estat_aws/server.py`)
+**DELETE /mcp** - セッション終了
+```python
+async def handle_mcp_endpoint(request):
+    if request.method == 'DELETE':
+        session_id = request.headers.get('Mcp-Session-Id')
+        # セッションクリーンアップ
+        return web.Response(status=200, text="Session terminated")
+```
+
+#### ツールマッピング
+
+```python
+TOOLS = {
+    "search_estat_data": {
+        "handler": lambda **kwargs: estat_server.search_estat_data(**kwargs),
+        "description": "自然言語でe-Statデータを検索",
+        "parameters": {
+            "query": {"type": "string", "required": True},
+            "max_results": {"type": "integer", "default": 5},
+            "auto_suggest": {"type": "boolean", "default": True},
+            "scoring_method": {"type": "string", "default": "enhanced"}
+        }
+    },
+    # ... 全11ツール
+}
+```
+
+### 5. EStatAWSServer (ビジネスロジック)
 
 **クラス**: `EStatAWSServer`
 
@@ -131,6 +328,7 @@ def __init__(self):
         pool_maxsize=20,
         max_retries=3
     )
+    self.session.mount('https://', adapter)
     
     # AWSクライアント
     self.s3_client = boto3.client('s3', region_name=AWS_REGION)
@@ -142,6 +340,7 @@ def __init__(self):
 - `S3_BUCKET`: データ保存先S3バケット (estat-data-lake)
 - `AWS_REGION`: AWSリージョン (ap-northeast-1)
 - `LOG_LEVEL`: ログレベル (INFO/DEBUG/ERROR)
+- `PORT`: HTTPサーバーポート (8080)
 
 ### 3. ユーティリティモジュール
 
@@ -521,15 +720,27 @@ TBLPROPERTIES (
 ```
 User Query
     ↓
-search_estat_data
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: search_estat_data)
+AWS ALB
+    ↓
+ECS Fargate (server_mcp_streamable.py)
+    ↓
+EStatAWSServer.search_estat_data()
     ↓ (dataset_id取得)
-fetch_dataset_auto
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: fetch_dataset_auto)
+EStatAWSServer.fetch_dataset_auto()
     ↓ (S3にJSON保存)
-save_dataset_as_csv
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: save_dataset_as_csv)
+EStatAWSServer.save_dataset_as_csv()
     ↓ (S3にCSV保存)
-get_csv_download_url
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: get_csv_download_url)
+EStatAWSServer.get_csv_download_url()
     ↓ (署名付きURL生成)
-User Download
+User Download (Browser/curl)
 ```
 
 #### パターン2: 大規模データ分析
@@ -537,17 +748,157 @@ User Download
 ```
 User Query
     ↓
-search_estat_data
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: search_estat_data)
+EStatAWSServer.search_estat_data()
     ↓
-fetch_dataset_filtered (絞り込み)
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: fetch_dataset_filtered)
+EStatAWSServer.fetch_dataset_filtered(絞り込み)
     ↓ (S3にJSON保存)
-transform_to_parquet
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: transform_to_parquet)
+EStatAWSServer.transform_to_parquet()
     ↓ (S3にParquet保存)
-load_to_iceberg
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: load_to_iceberg)
+EStatAWSServer.load_to_iceberg()
     ↓ (Athenaテーブル作成)
-analyze_with_athena
+Kiro Client (MCP)
+    ↓ HTTPS POST /mcp (tools/call: analyze_with_athena)
+EStatAWSServer.analyze_with_athena()
     ↓
 Analysis Results
+```
+
+### MCP通信フロー詳細
+
+#### 1. セッション確立
+
+```
+Client → Server: GET /mcp
+  Headers:
+    Accept: text/event-stream
+    
+Server → Client: 200 OK
+  Headers:
+    Content-Type: text/event-stream
+    Cache-Control: no-cache
+    Connection: keep-alive
+  Body:
+    event: connection
+    data: {"status": "ready", "timestamp": "2026-01-15T14:30:00Z"}
+```
+
+#### 2. 初期化
+
+```
+Client → Server: POST /mcp
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {},
+        "clientInfo": {"name": "kiro", "version": "1.0.0"}
+      }
+    }
+
+Server → Client: 200 OK
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {"tools": {}},
+        "serverInfo": {"name": "estat-aws", "version": "1.0.0"}
+      }
+    }
+```
+
+#### 3. ツール一覧取得
+
+```
+Client → Server: POST /mcp
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list",
+      "params": {}
+    }
+
+Server → Client: 200 OK
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "tools": [
+          {
+            "name": "search_estat_data",
+            "description": "自然言語でe-Statデータを検索",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer"}
+              },
+              "required": ["query"]
+            }
+          },
+          ...
+        ]
+      }
+    }
+```
+
+#### 4. ツール実行
+
+```
+Client → Server: POST /mcp
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "search_estat_data",
+        "arguments": {
+          "query": "北海道 人口",
+          "max_results": 5
+        }
+      }
+    }
+
+Server → Client: 200 OK
+  Body:
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"success\": true, \"results\": [...]}"
+          }
+        ]
+      }
+    }
+```
+
+#### 5. セッション終了
+
+```
+Client → Server: DELETE /mcp
+  Headers:
+    Mcp-Session-Id: abc123
+
+Server → Client: 200 OK
+  Body: "Session terminated"
 ```
 
 ### S3バケット構造
@@ -656,23 +1007,92 @@ def _get_cached_metadata(dataset_id: str):
 - S3バケットアクセス権限
 - Athenaクエリ実行権限
 - ECS Fargateタスクロール
+- Glue Data Catalogアクセス権限
+
+**ECS Task Role**:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::estat-data-lake",
+        "arn:aws:s3:::estat-data-lake/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "glue:GetDatabase",
+        "glue:GetTable",
+        "glue:CreateDatabase",
+        "glue:CreateTable"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 ### 3. ネットワークセキュリティ
 
 **ALB (Application Load Balancer)**:
-- HTTPSエンドポイント
-- セキュリティグループ
-- VPC内通信
+- **HTTPS強制**: HTTP → HTTPS リダイレクト
+- **SSL/TLS**: TLS 1.2以上
+- **ACM証明書**: AWS Certificate Manager管理
+- **セキュリティグループ**: 
+  - Inbound: 443 (HTTPS) from 0.0.0.0/0
+  - Outbound: All traffic
+
+**ECS Fargate**:
+- **VPC**: プライベートサブネット
+- **セキュリティグループ**:
+  - Inbound: 8080 from ALB security group
+  - Outbound: 443 (HTTPS) to e-Stat API, AWS services
+- **NAT Gateway**: インターネットアクセス用
 
 ### 4. データ保護
 
 **S3暗号化**:
 - サーバーサイド暗号化 (SSE-S3)
-- バケットポリシー
+- バケットポリシーによるアクセス制御
+- バージョニング有効化
 
 **署名付きURL**:
 - 有効期限付き (デフォルト: 1時間)
 - ダウンロード専用
+- 一時的なアクセス権限
+
+### 5. 通信セキュリティ
+
+**HTTPS通信**:
+```
+Kiro Client
+    ↓ TLS 1.2+
+AWS ALB (SSL Termination)
+    ↓ HTTP (VPC内)
+ECS Fargate
+```
+
+**MCP over HTTPS**:
+- JSON-RPC 2.0 over HTTPS
+- SSE (Server-Sent Events) over HTTPS
+- WebSocket-like persistent connection
 
 ---
 
@@ -689,18 +1109,124 @@ logger.info("Tool called", extra={
 })
 ```
 
+**CloudWatch Logs**:
+- ログストリーム: `/ecs/estat-mcp`
+- ログ保持期間: 30日
+- ログレベル: INFO (本番), DEBUG (開発)
+
+**ログ例**:
+```
+[2026-01-15T14:30:00] Starting e-Stat AWS MCP Server (Streamable HTTP)
+[2026-01-15T14:30:00] Host: 0.0.0.0:8080
+[2026-01-15T14:30:01] e-Stat AWS Server initialized successfully
+[2026-01-15T14:30:05] MCP Request: POST from 10.0.1.50
+[2026-01-15T14:30:05] JSONRPC Request: method=tools/call, id=3
+[2026-01-15T14:30:05] Executing tool: search_estat_data
+[2026-01-15T14:30:07] Tool execution completed successfully: search_estat_data
+```
+
 ### メトリクス
 
-- ツール呼び出し回数
-- 実行時間
-- エラー率
-- データ取得量
+**CloudWatch Metrics**:
+- **ECS Metrics**:
+  - CPUUtilization
+  - MemoryUtilization
+  - TaskCount
+  - RunningTaskCount
+
+- **ALB Metrics**:
+  - RequestCount
+  - TargetResponseTime
+  - HTTPCode_Target_2XX_Count
+  - HTTPCode_Target_5XX_Count
+  - HealthyHostCount
+  - UnHealthyHostCount
+
+- **カスタムメトリクス**:
+  - ツール呼び出し回数
+  - ツール実行時間
+  - エラー率
+  - データ取得量
 
 ### アラート
 
-- API制限到達
-- S3容量不足
-- Athenaクエリ失敗
+**CloudWatch Alarms**:
+
+1. **高CPU使用率**
+   - 条件: CPUUtilization > 70% for 5 minutes
+   - アクション: Auto Scaling + SNS通知
+
+2. **高メモリ使用率**
+   - 条件: MemoryUtilization > 80% for 5 minutes
+   - アクション: SNS通知
+
+3. **エラー率上昇**
+   - 条件: HTTPCode_Target_5XX_Count > 10 for 1 minute
+   - アクション: SNS通知
+
+4. **ヘルスチェック失敗**
+   - 条件: UnHealthyHostCount > 0 for 2 minutes
+   - アクション: Auto Scaling + SNS通知
+
+5. **レスポンス時間遅延**
+   - 条件: TargetResponseTime > 5 seconds for 3 minutes
+   - アクション: SNS通知
+
+### Auto Scaling
+
+**スケーリングポリシー**:
+
+```json
+{
+  "TargetTrackingScalingPolicyConfiguration": {
+    "TargetValue": 70.0,
+    "PredefinedMetricSpecification": {
+      "PredefinedMetricType": "ECSServiceAverageCPUUtilization"
+    },
+    "ScaleInCooldown": 300,
+    "ScaleOutCooldown": 60
+  }
+}
+```
+
+**スケーリング設定**:
+- **最小タスク数**: 1
+- **最大タスク数**: 10
+- **希望タスク数**: 2
+- **スケールアウト**: CPU > 70% → +1タスク
+- **スケールイン**: CPU < 50% → -1タスク
+
+### デプロイメント
+
+**Blue/Green Deployment**:
+```
+1. 新しいタスク定義を作成
+   ↓
+2. 新しいタスクを起動（Green）
+   ↓
+3. ヘルスチェック確認
+   ↓
+4. ALBトラフィックを徐々に移行
+   ↓
+5. 旧タスクを停止（Blue）
+```
+
+**ロールバック**:
+- 自動: ヘルスチェック失敗時
+- 手動: AWS Console / CLI
+
+### バックアップ
+
+**S3データ**:
+- バージョニング有効
+- ライフサイクルポリシー:
+  - 30日後: Standard-IA
+  - 90日後: Glacier
+  - 365日後: 削除
+
+**Glue Data Catalog**:
+- 自動バックアップ（AWS管理）
+- テーブル定義のエクスポート
 
 ---
 
@@ -711,31 +1237,137 @@ logger.info("Tool called", extra={
 1. **キャッシュ層の追加**
    - Redis/Elasticacheによる検索結果キャッシュ
    - メタデータキャッシュ
+   - TTL: 1時間
 
 2. **バッチ処理**
    - 定期的なデータ更新
    - 自動インデックス作成
+   - AWS Lambda + EventBridge
 
 3. **可視化機能**
-   - グラフ生成
-   - ダッシュボード
+   - グラフ生成 (matplotlib/plotly)
+   - ダッシュボード (QuickSight連携)
+   - レポート自動生成
 
 4. **多言語対応**
    - 英語インターフェース
    - 国際統計データ対応
+   - i18n実装
+
+5. **認証・認可強化**
+   - API Key認証
+   - OAuth 2.0対応
+   - ユーザー別クォータ管理
 
 ### パフォーマンス改善
 
 1. **分散処理**
    - AWS Lambda並列実行
    - Step Functions統合
+   - SQS/SNSによる非同期処理
 
 2. **ストリーミング処理**
    - 大規模データのストリーミング取得
    - リアルタイム分析
+   - Kinesis Data Streams連携
+
+3. **CDN導入**
+   - CloudFront配信
+   - 静的コンテンツキャッシュ
+   - エッジロケーション活用
+
+4. **データベース最適化**
+   - Athena Federated Query
+   - Redshift連携
+   - パーティション最適化
+
+### インフラ改善
+
+1. **マルチリージョン対応**
+   - グローバルアクセラレータ
+   - リージョン間レプリケーション
+   - 災害復旧 (DR)
+
+2. **コスト最適化**
+   - Savings Plans
+   - Spot Instances活用
+   - S3 Intelligent-Tiering
+
+3. **セキュリティ強化**
+   - WAF (Web Application Firewall)
+   - Shield (DDoS Protection)
+   - GuardDuty (脅威検出)
+
+4. **監視強化**
+   - X-Ray (分散トレーシング)
+   - CloudWatch Insights
+   - カスタムダッシュボード
+
+---
+
+## 付録
+
+### A. MCP Streamable HTTP仕様
+
+**プロトコル**: MCP (Model Context Protocol) 2024-11-05
+
+**トランスポート**: streamable-http
+
+**特徴**:
+- JSON-RPC 2.0ベース
+- SSE (Server-Sent Events)サポート
+- 双方向通信
+- セッション管理
+
+**エンドポイント**:
+- `GET /mcp`: SSEストリーム確立
+- `POST /mcp`: JSON-RPCメッセージ送信
+- `DELETE /mcp`: セッション終了
+
+### B. AWS リソース一覧
+
+| リソース | 名前 | 用途 |
+|---------|------|------|
+| ALB | estat-mcp-alb | HTTPS終端、負荷分散 |
+| ECS Cluster | estat-mcp-cluster | コンテナ実行環境 |
+| ECS Service | estat-mcp-service | タスク管理 |
+| ECR Repository | estat-mcp | Dockerイメージ保存 |
+| S3 Bucket | estat-data-lake | データ保存 |
+| Athena Workgroup | estat-mcp-workgroup | クエリ実行 |
+| Glue Database | estat_db | メタデータ管理 |
+| CloudWatch Log Group | /ecs/estat-mcp | ログ保存 |
+| ACM Certificate | *.snowmole.co.jp | SSL/TLS証明書 |
+| Route 53 | estat-mcp.snowmole.co.jp | DNS |
+
+### C. 環境変数一覧
+
+| 変数名 | 説明 | デフォルト値 |
+|--------|------|------------|
+| ESTAT_APP_ID | e-Stat APIキー | (必須) |
+| S3_BUCKET | S3バケット名 | estat-data-lake |
+| AWS_REGION | AWSリージョン | ap-northeast-1 |
+| PORT | HTTPサーバーポート | 8080 |
+| TRANSPORT_HOST | バインドホスト | 0.0.0.0 |
+| LOG_LEVEL | ログレベル | INFO |
+
+### D. エラーコード一覧
+
+| コード | 説明 | 対応 |
+|--------|------|------|
+| -32700 | Parse error | JSON形式確認 |
+| -32600 | Invalid Request | リクエスト形式確認 |
+| -32601 | Method not found | メソッド名確認 |
+| -32602 | Invalid params | パラメータ確認 |
+| -32603 | Internal error | サーバーログ確認 |
+| ESTAT_API_ERROR | e-Stat API関連エラー | リトライ、パラメータ確認 |
+| AWS_SERVICE_ERROR | AWSサービスエラー | 認証情報確認、リトライ |
+| DATA_TRANSFORM_ERROR | データ変換エラー | データ形式確認 |
+| INVALID_PARAMETER | パラメータ不正 | パラメータ修正 |
+| TIMEOUT_ERROR | タイムアウト | チャンクサイズ削減 |
 
 ---
 
 **作成日**: 2026年1月15日  
 **バージョン**: v2.1.0  
-**作成者**: Kiro AI Assistant
+**作成者**: Kiro AI Assistant  
+**アーキテクチャ**: Kiro → HTTPS → AWS ALB → ECS Fargate → server_mcp_streamable.py → EStatAWSServer
