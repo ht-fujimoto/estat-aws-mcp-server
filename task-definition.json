@@ -1,0 +1,43 @@
+{
+  "family": "estat-mcp-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::639135896267:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::639135896267:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "estat-mcp-container",
+      "image": "639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ESTAT_APP_ID",
+          "value": "320dd2fbff6974743e3f95505c9f346650ab635e"
+        },
+        {
+          "name": "S3_BUCKET",
+          "value": "estat-data-lake"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "ap-northeast-1"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/estat-mcp",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

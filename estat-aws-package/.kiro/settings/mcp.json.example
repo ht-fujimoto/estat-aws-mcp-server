@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "estat-aws": {
+      "command": "python3",
+      "args": ["mcp_aws_wrapper.py"],
+      "env": {
+        "ESTAT_APP_ID": "your-estat-api-key-here",
+        "S3_BUCKET": "estat-data-lake",
+        "AWS_REGION": "ap-northeast-1"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search_estat_data",
+        "apply_keyword_suggestions",
+        "fetch_dataset_auto",
+        "fetch_large_dataset_complete",
+        "fetch_dataset_filtered",
+        "transform_to_parquet",
+        "load_to_iceberg",
+        "analyze_with_athena",
+        "save_dataset_as_csv",
+        "download_csv_from_s3"
+      ]
+    }
+  }
+}

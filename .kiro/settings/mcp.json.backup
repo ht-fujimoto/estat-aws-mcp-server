@@ -1,0 +1,77 @@
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-documentation-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    },
+    "estat-enhanced": {
+      "command": "python3",
+      "args": [
+        "mcp_servers/estat_enhanced_analysis.py"
+      ],
+      "env": {
+        "ESTAT_APP_ID": "320dd2fbff6974743e3f95505c9f346650ab635e",
+        "S3_BUCKET": "estat-data-lake",
+        "AWS_REGION": "ap-northeast-1"
+      },
+      "disabled": true,
+      "autoApprove": [
+        "search_estat_data",
+        "apply_keyword_suggestions",
+        "fetch_dataset_auto",
+        "fetch_dataset_filtered",
+        "transform_to_parquet",
+        "load_to_iceberg",
+        "analyze_with_athena"
+      ]
+    },
+    "estat-aws-local": {
+      "command": "python3",
+      "args": [
+        "mcp_aws_wrapper.py"
+      ],
+      "env": {
+        "ESTAT_APP_ID": "320dd2fbff6974743e3f95505c9f346650ab635e",
+        "S3_BUCKET": "estat-data-lake",
+        "AWS_REGION": "ap-northeast-1"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search_estat_data",
+        "apply_keyword_suggestions",
+        "fetch_dataset_auto",
+        "fetch_large_dataset_complete",
+        "fetch_dataset_filtered",
+        "transform_to_parquet",
+        "load_to_iceberg",
+        "analyze_with_athena",
+        "save_dataset_as_csv",
+        "download_csv_from_s3"
+      ]
+    },
+    "estat-aws-remote": {
+      "transport": "streamable-http",
+      "url": "http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com/mcp",
+      "disabled": true,
+      "autoApprove": [
+        "search_estat_data",
+        "apply_keyword_suggestions",
+        "fetch_dataset_auto",
+        "fetch_large_dataset_complete",
+        "fetch_dataset_filtered",
+        "transform_to_parquet",
+        "load_to_iceberg",
+        "analyze_with_athena",
+        "save_dataset_as_csv",
+        "download_csv_from_s3"
+      ]
+    }
+  }
+}

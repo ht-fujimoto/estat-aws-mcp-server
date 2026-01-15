@@ -1,0 +1,204 @@
+==========================================
+ECS Fargate デプロイ（続き）
+==========================================
+
+11. Application Load Balancerを作成...
+✅ ALB ARN: arn:aws:elasticloadbalancing:ap-northeast-1:639135896267:loadbalancer/app/estat-mcp-alb/fcfeae606f00522b
+⏳ ALBの作成を待機中...
+✅ ALB DNS: estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com
+
+12. ターゲットグループを作成...
+✅ ターゲットグループ: arn:aws:elasticloadbalancing:ap-northeast-1:639135896267:targetgroup/estat-mcp-tg/11ae590cef59f39f
+{
+    "Attributes": [
+        {
+            "Key": "target_group_health.unhealthy_state_routing.minimum_healthy_targets.percentage",
+            "Value": "off"
+        },
+        {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": "30"
+        },
+        {
+            "Key": "stickiness.type",
+            "Value": "lb_cookie"
+        },
+        {
+            "Key": "stickiness.lb_cookie.duration_seconds",
+            "Value": "86400"
+        },
+        {
+            "Key": "slow_start.duration_seconds",
+            "Value": "0"
+        },
+        {
+            "Key": "stickiness.app_cookie.duration_seconds",
+            "Value": "86400"
+        },
+        {
+            "Key": "load_balancing.algorithm.type",
+            "Value": "round_robin"
+        },
+        {
+            "Key": "load_balancing.cross_zone.enabled",
+            "Value": "use_load_balancer_configuration"
+        },
+        {
+            "Key": "target_group_health.dns_failover.minimum_healthy_targets.percentage",
+            "Value": "off"
+        },
+        {
+            "Key": "target_group_health.unhealthy_state_routing.minimum_healthy_targets.count",
+            "Value": "1"
+        },
+        {
+            "Key": "stickiness.enabled",
+            "Value": "false"
+        },
+        {
+            "Key": "target_group_health.dns_failover.minimum_healthy_targets.count",
+            "Value": "1"
+        },
+        {
+            "Key": "stickiness.app_cookie.cookie_name",
+            "Value": ""
+        },
+        {
+            "Key": "load_balancing.algorithm.anomaly_mitigation",
+            "Value": "off"
+        }
+    ]
+}
+
+13. リスナーを作成...
+✅ リスナー作成完了
+
+14. ECSサービスを作成...
+{
+    "service": {
+        "serviceArn": "arn:aws:ecs:ap-northeast-1:639135896267:service/estat-mcp-cluster/estat-mcp-service",
+        "serviceName": "estat-mcp-service",
+        "clusterArn": "arn:aws:ecs:ap-northeast-1:639135896267:cluster/estat-mcp-cluster",
+        "loadBalancers": [
+            {
+                "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:639135896267:targetgroup/estat-mcp-tg/11ae590cef59f39f",
+                "containerName": "estat-mcp-container",
+                "containerPort": 8080
+            }
+        ],
+        "serviceRegistries": [],
+        "status": "ACTIVE",
+        "desiredCount": 1,
+        "runningCount": 0,
+        "pendingCount": 0,
+        "launchType": "FARGATE",
+        "platformVersion": "LATEST",
+        "platformFamily": "Linux",
+        "taskDefinition": "arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:1",
+        "deploymentConfiguration": {
+            "deploymentCircuitBreaker": {
+                "enable": false,
+                "rollback": false
+            },
+            "maximumPercent": 200,
+            "minimumHealthyPercent": 100,
+            "strategy": "ROLLING",
+            "bakeTimeInMinutes": 0
+        },
+        "deployments": [
+            {
+                "id": "ecs-svc/2079142746005561171",
+                "status": "PRIMARY",
+                "taskDefinition": "arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:1",
+                "desiredCount": 0,
+                "pendingCount": 0,
+                "runningCount": 0,
+                "failedTasks": 0,
+                "createdAt": "2026-01-08T17:54:22.784000+09:00",
+                "updatedAt": "2026-01-08T17:54:22.784000+09:00",
+                "launchType": "FARGATE",
+                "platformVersion": "1.4.0",
+                "platformFamily": "Linux",
+                "networkConfiguration": {
+                    "awsvpcConfiguration": {
+                        "subnets": [
+                            "subnet-03ba7c7611560097a",
+                            "subnet-0d041dcb0f945d721",
+                            "subnet-030bed1711793dc2d"
+                        ],
+                        "securityGroups": [
+                            "sg-03ae5df18c9a33c8b"
+                        ],
+                        "assignPublicIp": "ENABLED"
+                    }
+                },
+                "rolloutState": "IN_PROGRESS",
+                "rolloutStateReason": "ECS deployment ecs-svc/2079142746005561171 in progress."
+            }
+        ],
+        "roleArn": "arn:aws:iam::639135896267:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+        "events": [],
+        "createdAt": "2026-01-08T17:54:22.784000+09:00",
+        "currentServiceRevisions": [
+            {
+                "arn": "arn:aws:ecs:ap-northeast-1:639135896267:service-revision/estat-mcp-cluster/estat-mcp-service/2079142746005561171",
+                "requestedTaskCount": 0,
+                "runningTaskCount": 0,
+                "pendingTaskCount": 0
+            }
+        ],
+        "placementConstraints": [],
+        "placementStrategy": [],
+        "networkConfiguration": {
+            "awsvpcConfiguration": {
+                "subnets": [
+                    "subnet-03ba7c7611560097a",
+                    "subnet-0d041dcb0f945d721",
+                    "subnet-030bed1711793dc2d"
+                ],
+                "securityGroups": [
+                    "sg-03ae5df18c9a33c8b"
+                ],
+                "assignPublicIp": "ENABLED"
+            }
+        },
+        "healthCheckGracePeriodSeconds": 0,
+        "schedulingStrategy": "REPLICA",
+        "deploymentController": {
+            "type": "ECS"
+        },
+        "createdBy": "arn:aws:iam::639135896267:user/s3-tables-user",
+        "enableECSManagedTags": false,
+        "propagateTags": "NONE",
+        "enableExecuteCommand": false,
+        "availabilityZoneRebalancing": "ENABLED",
+        "resourceManagementType": "CUSTOMER"
+    }
+}
+✅ ECSサービス作成完了
+
+15. サービスの起動を待機中...
+⏳ これには数分かかる場合があります...
+
+==========================================
+動作確認
+==========================================
+
+API URL: http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com
+
+ヘルスチェック...
+
+==========================================
+✅ デプロイ完了！
+==========================================
+
+API URL: http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com
+
+mcp_aws_wrapper.pyを更新してください：
+API_URL = "http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com"
+
+タイムアウト: 制限なし（ALBタイムアウト: 300秒設定可能）
+
+CloudWatch Logs:
+aws logs tail /ecs/estat-mcp --follow --region ap-northeast-1
+

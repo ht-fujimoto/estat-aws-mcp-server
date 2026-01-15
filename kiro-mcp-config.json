@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "estat-aws": {
+      "command": "curl",
+      "args": [
+        "-X", "POST",
+        "https://pc6a551m8k.execute-api.ap-northeast-1.amazonaws.com/prod/execute",
+        "-H", "Content-Type: application/json",
+        "-d", "@-"
+      ],
+      "disabled": false
+    }
+  }
+}

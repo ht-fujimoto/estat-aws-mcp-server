@@ -1,0 +1,51 @@
+✅ データセット取得: True
+データセットID: 0000040713
+取得レコード数: 44352
+メッセージ: Successfully fetched 44,352 records (100.0% complete)
+{
+  "success": true,
+  "dataset_id": "0000040713",
+  "records_fetched": 44352,
+  "expected_records": 44352,
+  "completeness_ratio": 1.0,
+  "processing_time": "4.3秒",
+  "sample_data": [
+    {
+      "@cat01": "001",
+      "@area": "01000",
+      "@time": "1991000000",
+      "@unit": "人",
+      "$": "2603010"
+    },
+    {
+      "@cat01": "001",
+      "@area": "01001",
+      "@time": "1991000000",
+      "@unit": "人",
+      "$": "2024254"
+    },
+    {
+      "@cat01": "001",
+      "@area": "01002",
+      "@time": "1991000000",
+      "@unit": "人",
+      "$": "578756"
+    },
+    {
+      "@cat01": "001",
+      "@area": "01100",
+      "@time": "1991000000",
+      "@unit": "人",
+      "$": "864616"
+    },
+    {
+      "@cat01": "001",
+      "@area": "01101",
+      "@time": "1991000000",
+      "@unit": "人",
+      "$": "346306"
+    }
+  ],
+  "s3_location": null,
+  "message": "Successfully fetched 44,352 records (100.0% complete)"
+}

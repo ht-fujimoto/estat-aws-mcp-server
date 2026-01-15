@@ -1,0 +1,7 @@
+╔══════════════════════════════════════════════════════════════╗
+║         AWS Lambda + API Gateway Deployment                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+[0;34mChecking environment variables...[0m
+[0;31mError: ESTAT_APP_ID environment variable is not set[0m
+Please set it with: export ESTAT_APP_ID=your_api_key

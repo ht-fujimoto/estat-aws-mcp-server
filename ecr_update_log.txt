@@ -1,0 +1,774 @@
+[0;34m==========================================
+ECR更新 - Athenaツール修正版
+==========================================[0m
+
+[1;33m修正内容:[0m
+  - load_to_iceberg: Athenaワークグループ問題を修正
+  - analyze_with_athena: 出力バケット設定を改善
+  - エラーハンドリングを強化
+
+[1;33mStep 1: 現在のデプロイ状況を確認...[0m
+[0;32m✓ 現在のタスク定義: arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:16[0m
+
+[1;33mStep 2: ECRリポジトリを確認...[0m
+[0;32m✓ ECRリポジトリ: 639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server[0m
+
+[1;33mStep 3: 新しいDockerイメージをビルド...[0m
+  修正されたコードを含むイメージを作成中...
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.09kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 ...
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 6.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 94.52kB done
+#5 DONE 0.0s
+
+#6 [1/8] FROM docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032
+#6 resolve docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032 0.0s done
+#6 sha256:518abaec573aacfc293edf9e19b26274fc7ee5d3448e80f90eecdae829acd7e7 0B / 249B 0.2s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 0B / 14.31MB 0.2s
+#6 sha256:d67bedf18e0abdffd887db745e6a45c9173ae1b93fd7fac8d7a8c6b2e5346455 0B / 1.27MB 0.2s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 0B / 30.13MB 0.2s
+#6 sha256:518abaec573aacfc293edf9e19b26274fc7ee5d3448e80f90eecdae829acd7e7 249B / 249B 0.5s done
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 1.05MB / 14.31MB 1.2s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 2.10MB / 14.31MB 1.7s
+#6 sha256:d67bedf18e0abdffd887db745e6a45c9173ae1b93fd7fac8d7a8c6b2e5346455 1.27MB / 1.27MB 1.8s done
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 3.15MB / 14.31MB 2.1s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 2.10MB / 30.13MB 2.1s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 4.19MB / 14.31MB 2.6s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 5.24MB / 14.31MB 2.9s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 4.19MB / 30.13MB 2.9s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 6.29MB / 14.31MB 3.3s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 7.34MB / 14.31MB 3.9s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 6.29MB / 30.13MB 3.9s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 8.39MB / 14.31MB 4.4s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 9.44MB / 14.31MB 4.8s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 8.39MB / 30.13MB 4.7s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 10.49MB / 14.31MB 5.4s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 10.49MB / 30.13MB 5.4s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 11.53MB / 14.31MB 6.0s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 12.58MB / 30.13MB 6.0s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 12.58MB / 14.31MB 6.6s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 14.68MB / 30.13MB 6.8s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 13.63MB / 14.31MB 7.1s
+#6 sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 14.31MB / 14.31MB 7.4s done
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 16.78MB / 30.13MB 7.5s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 18.87MB / 30.13MB 8.1s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 20.97MB / 30.13MB 8.6s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 23.07MB / 30.13MB 9.0s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 25.17MB / 30.13MB 9.5s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 27.26MB / 30.13MB 10.1s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 29.36MB / 30.13MB 10.4s
+#6 sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 30.13MB / 30.13MB 10.5s done
+#6 extracting sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b
+#6 extracting sha256:d637807aba98f742a62ad9b0146579ceb0297a3c831f56b2361664b7f5fbc75b 0.3s done
+#6 DONE 10.9s
+
+#6 [1/8] FROM docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032
+#6 extracting sha256:d67bedf18e0abdffd887db745e6a45c9173ae1b93fd7fac8d7a8c6b2e5346455 0.0s done
+#6 extracting sha256:068949646e5ac13b4b3f99bca3f1249ca853fc5bd30512ea7d447af7a649b011 0.1s done
+#6 DONE 11.0s
+
+#6 [1/8] FROM docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032
+#6 extracting sha256:518abaec573aacfc293edf9e19b26274fc7ee5d3448e80f90eecdae829acd7e7 done
+#6 DONE 11.0s
+
+#7 [2/8] WORKDIR /app
+#7 DONE 0.1s
+
+#8 [3/8] RUN apt-get update && apt-get install -y     gcc     && rm -rf /var/lib/apt/lists/*
+#8 0.192 Hit:1 http://deb.debian.org/debian trixie InRelease
+#8 0.210 Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+#8 0.379 Get:3 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+#8 0.415 Get:4 http://deb.debian.org/debian trixie/main arm64 Packages [9607 kB]
+#8 2.522 Get:5 http://deb.debian.org/debian trixie-updates/main arm64 Packages [5404 B]
+#8 2.542 Get:6 http://deb.debian.org/debian-security trixie-security/main arm64 Packages [95.8 kB]
+#8 3.023 Fetched 9799 kB in 3s (3354 kB/s)
+#8 3.023 Reading package lists...
+#8 3.242 Reading package lists...
+#8 3.449 Building dependency tree...
+#8 3.505 Reading state information...
+#8 3.585 The following additional packages will be installed:
+#8 3.585   binutils binutils-aarch64-linux-gnu binutils-common cpp cpp-14
+#8 3.585   cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu gcc-14
+#8 3.585   gcc-14-aarch64-linux-gnu gcc-aarch64-linux-gnu libasan8 libatomic1
+#8 3.585   libbinutils libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0
+#8 3.585   libctf0 libgcc-14-dev libgomp1 libgprofng0 libhwasan0 libisl23 libitm1
+#8 3.585   libjansson4 liblsan0 libmpc3 libmpfr6 libsframe1 libtsan2 libubsan1
+#8 3.586   linux-libc-dev manpages manpages-dev rpcsvc-proto
+#8 3.586 Suggested packages:
+#8 3.586   binutils-doc gprofng-gui binutils-gold cpp-doc gcc-14-locales cpp-14-doc
+#8 3.586   gcc-multilib make autoconf automake libtool flex bison gdb gcc-doc
+#8 3.586   gcc-14-doc gdb-aarch64-linux-gnu libc-devtools glibc-doc man-browser
+#8 3.652 The following NEW packages will be installed:
+#8 3.652   binutils binutils-aarch64-linux-gnu binutils-common cpp cpp-14
+#8 3.652   cpp-14-aarch64-linux-gnu cpp-aarch64-linux-gnu gcc gcc-14
+#8 3.652   gcc-14-aarch64-linux-gnu gcc-aarch64-linux-gnu libasan8 libatomic1
+#8 3.652   libbinutils libc-dev-bin libc6-dev libcc1-0 libcrypt-dev libctf-nobfd0
+#8 3.652   libctf0 libgcc-14-dev libgomp1 libgprofng0 libhwasan0 libisl23 libitm1
+#8 3.652   libjansson4 liblsan0 libmpc3 libmpfr6 libsframe1 libtsan2 libubsan1
+#8 3.653   linux-libc-dev manpages manpages-dev rpcsvc-proto
+#8 3.717 0 upgraded, 37 newly installed, 0 to remove and 0 not upgraded.
+#8 3.717 Need to get 53.3 MB of archives.
+#8 3.717 After this operation, 211 MB of additional disk space will be used.
+#8 3.717 Get:1 http://deb.debian.org/debian trixie/main arm64 manpages all 6.9.1-1 [1393 kB]
+#8 4.049 Get:2 http://deb.debian.org/debian trixie/main arm64 libsframe1 arm64 2.44-3 [77.8 kB]
+#8 4.094 Get:3 http://deb.debian.org/debian trixie/main arm64 binutils-common arm64 2.44-3 [2509 kB]
+#8 4.799 Get:4 http://deb.debian.org/debian trixie/main arm64 libbinutils arm64 2.44-3 [660 kB]
+#8 4.928 Get:5 http://deb.debian.org/debian trixie/main arm64 libgprofng0 arm64 2.44-3 [668 kB]
+#8 5.021 Get:6 http://deb.debian.org/debian trixie/main arm64 libctf-nobfd0 arm64 2.44-3 [152 kB]
+#8 5.041 Get:7 http://deb.debian.org/debian trixie/main arm64 libctf0 arm64 2.44-3 [84.2 kB]
+#8 5.055 Get:8 http://deb.debian.org/debian trixie/main arm64 libjansson4 arm64 2.14-2+b3 [39.2 kB]
+#8 5.105 Get:9 http://deb.debian.org/debian trixie/main arm64 binutils-aarch64-linux-gnu arm64 2.44-3 [820 kB]
+#8 5.265 Get:10 http://deb.debian.org/debian trixie/main arm64 binutils arm64 2.44-3 [262 kB]
+#8 5.356 Get:11 http://deb.debian.org/debian trixie/main arm64 libisl23 arm64 0.27-1 [601 kB]
+#8 5.453 Get:12 http://deb.debian.org/debian trixie/main arm64 libmpfr6 arm64 4.2.2-1 [685 kB]
+#8 5.700 Get:13 http://deb.debian.org/debian trixie/main arm64 libmpc3 arm64 1.3.1-1+b3 [50.5 kB]
+#8 5.721 Get:14 http://deb.debian.org/debian trixie/main arm64 cpp-14-aarch64-linux-gnu arm64 14.2.0-19 [9169 kB]
+#8 7.976 Get:15 http://deb.debian.org/debian trixie/main arm64 cpp-14 arm64 14.2.0-19 [1276 B]
+#8 7.976 Get:16 http://deb.debian.org/debian trixie/main arm64 cpp-aarch64-linux-gnu arm64 4:14.2.0-1 [4832 B]
+#8 7.976 Get:17 http://deb.debian.org/debian trixie/main arm64 cpp arm64 4:14.2.0-1 [1568 B]
+#8 7.977 Get:18 http://deb.debian.org/debian trixie/main arm64 libcc1-0 arm64 14.2.0-19 [42.2 kB]
+#8 7.978 Get:19 http://deb.debian.org/debian trixie/main arm64 libgomp1 arm64 14.2.0-19 [124 kB]
+#8 7.979 Get:20 http://deb.debian.org/debian trixie/main arm64 libitm1 arm64 14.2.0-19 [24.2 kB]
+#8 7.979 Get:21 http://deb.debian.org/debian trixie/main arm64 libatomic1 arm64 14.2.0-19 [10.1 kB]
+#8 7.979 Get:22 http://deb.debian.org/debian trixie/main arm64 libasan8 arm64 14.2.0-19 [2578 kB]
+#8 8.370 Get:23 http://deb.debian.org/debian trixie/main arm64 liblsan0 arm64 14.2.0-19 [1161 kB]
+#8 8.598 Get:24 http://deb.debian.org/debian trixie/main arm64 libtsan2 arm64 14.2.0-19 [2383 kB]
+#8 9.159 Get:25 http://deb.debian.org/debian trixie/main arm64 libubsan1 arm64 14.2.0-19 [1039 kB]
+#8 9.400 Get:26 http://deb.debian.org/debian trixie/main arm64 libhwasan0 arm64 14.2.0-19 [1442 kB]
+#8 13.57 Get:27 http://deb.debian.org/debian trixie/main arm64 libgcc-14-dev arm64 14.2.0-19 [2359 kB]
+#8 14.33 Get:28 http://deb.debian.org/debian trixie/main arm64 gcc-14-aarch64-linux-gnu arm64 14.2.0-19 [17.7 MB]
+#8 18.25 Get:29 http://deb.debian.org/debian trixie/main arm64 gcc-14 arm64 14.2.0-19 [529 kB]
+#8 18.33 Get:30 http://deb.debian.org/debian trixie/main arm64 gcc-aarch64-linux-gnu arm64 4:14.2.0-1 [1440 B]
+#8 18.33 Get:31 http://deb.debian.org/debian trixie/main arm64 gcc arm64 4:14.2.0-1 [5136 B]
+#8 18.33 Get:32 http://deb.debian.org/debian trixie/main arm64 libc-dev-bin arm64 2.41-12+deb13u1 [57.6 kB]
+#8 18.36 Get:33 http://deb.debian.org/debian trixie/main arm64 linux-libc-dev all 6.12.63-1 [2720 kB]
+#8 18.85 Get:34 http://deb.debian.org/debian trixie/main arm64 libcrypt-dev arm64 1:4.4.38-1 [123 kB]
+#8 18.87 Get:35 http://deb.debian.org/debian trixie/main arm64 rpcsvc-proto arm64 1.4.3-1+b1 [60.5 kB]
+#8 18.90 Get:36 http://deb.debian.org/debian trixie/main arm64 libc6-dev arm64 2.41-12+deb13u1 [1623 kB]
+#8 19.42 Get:37 http://deb.debian.org/debian trixie/main arm64 manpages-dev all 6.9.1-1 [2122 kB]
+#8 20.02 debconf: unable to initialize frontend: Dialog
+#8 20.02 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#8 20.02 debconf: falling back to frontend: Readline
+#8 20.02 debconf: unable to initialize frontend: Readline
+#8 20.02 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/aarch64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/aarch64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/aarch64-linux-gnu/perl-base /usr/lib/aarch64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 37.)
+#8 20.02 debconf: falling back to frontend: Teletype
+#8 20.02 debconf: unable to initialize frontend: Teletype
+#8 20.02 debconf: (This frontend requires a controlling tty.)
+#8 20.02 debconf: falling back to frontend: Noninteractive
+#8 20.44 Fetched 53.3 MB in 16s (3273 kB/s)
+#8 20.45 Selecting previously unselected package manpages.
+#8 20.45 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5643 files and directories currently installed.)
+#8 20.45 Preparing to unpack .../00-manpages_6.9.1-1_all.deb ...
+#8 20.45 Unpacking manpages (6.9.1-1) ...
+#8 20.49 Selecting previously unselected package libsframe1:arm64.
+#8 20.49 Preparing to unpack .../01-libsframe1_2.44-3_arm64.deb ...
+#8 20.50 Unpacking libsframe1:arm64 (2.44-3) ...
+#8 20.51 Selecting previously unselected package binutils-common:arm64.
+#8 20.51 Preparing to unpack .../02-binutils-common_2.44-3_arm64.deb ...
+#8 20.51 Unpacking binutils-common:arm64 (2.44-3) ...
+#8 20.60 Selecting previously unselected package libbinutils:arm64.
+#8 20.61 Preparing to unpack .../03-libbinutils_2.44-3_arm64.deb ...
+#8 20.61 Unpacking libbinutils:arm64 (2.44-3) ...
+#8 20.64 Selecting previously unselected package libgprofng0:arm64.
+#8 20.64 Preparing to unpack .../04-libgprofng0_2.44-3_arm64.deb ...
+#8 20.64 Unpacking libgprofng0:arm64 (2.44-3) ...
+#8 20.67 Selecting previously unselected package libctf-nobfd0:arm64.
+#8 20.67 Preparing to unpack .../05-libctf-nobfd0_2.44-3_arm64.deb ...
+#8 20.67 Unpacking libctf-nobfd0:arm64 (2.44-3) ...
+#8 20.69 Selecting previously unselected package libctf0:arm64.
+#8 20.69 Preparing to unpack .../06-libctf0_2.44-3_arm64.deb ...
+#8 20.69 Unpacking libctf0:arm64 (2.44-3) ...
+#8 20.70 Selecting previously unselected package libjansson4:arm64.
+#8 20.70 Preparing to unpack .../07-libjansson4_2.14-2+b3_arm64.deb ...
+#8 20.70 Unpacking libjansson4:arm64 (2.14-2+b3) ...
+#8 20.71 Selecting previously unselected package binutils-aarch64-linux-gnu.
+#8 20.71 Preparing to unpack .../08-binutils-aarch64-linux-gnu_2.44-3_arm64.deb ...
+#8 20.71 Unpacking binutils-aarch64-linux-gnu (2.44-3) ...
+#8 20.76 Selecting previously unselected package binutils.
+#8 20.76 Preparing to unpack .../09-binutils_2.44-3_arm64.deb ...
+#8 20.76 Unpacking binutils (2.44-3) ...
+#8 20.78 Selecting previously unselected package libisl23:arm64.
+#8 20.78 Preparing to unpack .../10-libisl23_0.27-1_arm64.deb ...
+#8 20.78 Unpacking libisl23:arm64 (0.27-1) ...
+#8 20.81 Selecting previously unselected package libmpfr6:arm64.
+#8 20.81 Preparing to unpack .../11-libmpfr6_4.2.2-1_arm64.deb ...
+#8 20.81 Unpacking libmpfr6:arm64 (4.2.2-1) ...
+#8 20.83 Selecting previously unselected package libmpc3:arm64.
+#8 20.83 Preparing to unpack .../12-libmpc3_1.3.1-1+b3_arm64.deb ...
+#8 20.83 Unpacking libmpc3:arm64 (1.3.1-1+b3) ...
+#8 20.84 Selecting previously unselected package cpp-14-aarch64-linux-gnu.
+#8 20.84 Preparing to unpack .../13-cpp-14-aarch64-linux-gnu_14.2.0-19_arm64.deb ...
+#8 20.84 Unpacking cpp-14-aarch64-linux-gnu (14.2.0-19) ...
+#8 21.10 Selecting previously unselected package cpp-14.
+#8 21.10 Preparing to unpack .../14-cpp-14_14.2.0-19_arm64.deb ...
+#8 21.10 Unpacking cpp-14 (14.2.0-19) ...
+#8 21.11 Selecting previously unselected package cpp-aarch64-linux-gnu.
+#8 21.11 Preparing to unpack .../15-cpp-aarch64-linux-gnu_4%3a14.2.0-1_arm64.deb ...
+#8 21.11 Unpacking cpp-aarch64-linux-gnu (4:14.2.0-1) ...
+#8 21.12 Selecting previously unselected package cpp.
+#8 21.12 Preparing to unpack .../16-cpp_4%3a14.2.0-1_arm64.deb ...
+#8 21.12 Unpacking cpp (4:14.2.0-1) ...
+#8 21.13 Selecting previously unselected package libcc1-0:arm64.
+#8 21.13 Preparing to unpack .../17-libcc1-0_14.2.0-19_arm64.deb ...
+#8 21.13 Unpacking libcc1-0:arm64 (14.2.0-19) ...
+#8 21.14 Selecting previously unselected package libgomp1:arm64.
+#8 21.14 Preparing to unpack .../18-libgomp1_14.2.0-19_arm64.deb ...
+#8 21.14 Unpacking libgomp1:arm64 (14.2.0-19) ...
+#8 21.15 Selecting previously unselected package libitm1:arm64.
+#8 21.15 Preparing to unpack .../19-libitm1_14.2.0-19_arm64.deb ...
+#8 21.15 Unpacking libitm1:arm64 (14.2.0-19) ...
+#8 21.16 Selecting previously unselected package libatomic1:arm64.
+#8 21.16 Preparing to unpack .../20-libatomic1_14.2.0-19_arm64.deb ...
+#8 21.16 Unpacking libatomic1:arm64 (14.2.0-19) ...
+#8 21.17 Selecting previously unselected package libasan8:arm64.
+#8 21.17 Preparing to unpack .../21-libasan8_14.2.0-19_arm64.deb ...
+#8 21.17 Unpacking libasan8:arm64 (14.2.0-19) ...
+#8 21.26 Selecting previously unselected package liblsan0:arm64.
+#8 21.26 Preparing to unpack .../22-liblsan0_14.2.0-19_arm64.deb ...
+#8 21.26 Unpacking liblsan0:arm64 (14.2.0-19) ...
+#8 21.31 Selecting previously unselected package libtsan2:arm64.
+#8 21.31 Preparing to unpack .../23-libtsan2_14.2.0-19_arm64.deb ...
+#8 21.31 Unpacking libtsan2:arm64 (14.2.0-19) ...
+#8 21.40 Selecting previously unselected package libubsan1:arm64.
+#8 21.40 Preparing to unpack .../24-libubsan1_14.2.0-19_arm64.deb ...
+#8 21.40 Unpacking libubsan1:arm64 (14.2.0-19) ...
+#8 21.44 Selecting previously unselected package libhwasan0:arm64.
+#8 21.44 Preparing to unpack .../25-libhwasan0_14.2.0-19_arm64.deb ...
+#8 21.44 Unpacking libhwasan0:arm64 (14.2.0-19) ...
+#8 21.50 Selecting previously unselected package libgcc-14-dev:arm64.
+#8 21.50 Preparing to unpack .../26-libgcc-14-dev_14.2.0-19_arm64.deb ...
+#8 21.50 Unpacking libgcc-14-dev:arm64 (14.2.0-19) ...
+#8 21.59 Selecting previously unselected package gcc-14-aarch64-linux-gnu.
+#8 21.59 Preparing to unpack .../27-gcc-14-aarch64-linux-gnu_14.2.0-19_arm64.deb ...
+#8 21.59 Unpacking gcc-14-aarch64-linux-gnu (14.2.0-19) ...
+#8 21.90 Selecting previously unselected package gcc-14.
+#8 21.90 Preparing to unpack .../28-gcc-14_14.2.0-19_arm64.deb ...
+#8 21.90 Unpacking gcc-14 (14.2.0-19) ...
+#8 21.92 Selecting previously unselected package gcc-aarch64-linux-gnu.
+#8 21.92 Preparing to unpack .../29-gcc-aarch64-linux-gnu_4%3a14.2.0-1_arm64.deb ...
+#8 21.92 Unpacking gcc-aarch64-linux-gnu (4:14.2.0-1) ...
+#8 21.93 Selecting previously unselected package gcc.
+#8 21.93 Preparing to unpack .../30-gcc_4%3a14.2.0-1_arm64.deb ...
+#8 21.93 Unpacking gcc (4:14.2.0-1) ...
+#8 21.93 Selecting previously unselected package libc-dev-bin.
+#8 21.93 Preparing to unpack .../31-libc-dev-bin_2.41-12+deb13u1_arm64.deb ...
+#8 21.93 Unpacking libc-dev-bin (2.41-12+deb13u1) ...
+#8 21.94 Selecting previously unselected package linux-libc-dev.
+#8 21.94 Preparing to unpack .../32-linux-libc-dev_6.12.63-1_all.deb ...
+#8 21.94 Unpacking linux-libc-dev (6.12.63-1) ...
+#8 22.03 Selecting previously unselected package libcrypt-dev:arm64.
+#8 22.03 Preparing to unpack .../33-libcrypt-dev_1%3a4.4.38-1_arm64.deb ...
+#8 22.04 Unpacking libcrypt-dev:arm64 (1:4.4.38-1) ...
+#8 22.05 Selecting previously unselected package rpcsvc-proto.
+#8 22.05 Preparing to unpack .../34-rpcsvc-proto_1.4.3-1+b1_arm64.deb ...
+#8 22.05 Unpacking rpcsvc-proto (1.4.3-1+b1) ...
+#8 22.06 Selecting previously unselected package libc6-dev:arm64.
+#8 22.06 Preparing to unpack .../35-libc6-dev_2.41-12+deb13u1_arm64.deb ...
+#8 22.06 Unpacking libc6-dev:arm64 (2.41-12+deb13u1) ...
+#8 22.12 Selecting previously unselected package manpages-dev.
+#8 22.13 Preparing to unpack .../36-manpages-dev_6.9.1-1_all.deb ...
+#8 22.13 Unpacking manpages-dev (6.9.1-1) ...
+#8 22.21 Setting up manpages (6.9.1-1) ...
+#8 22.21 Setting up binutils-common:arm64 (2.44-3) ...
+#8 22.21 Setting up linux-libc-dev (6.12.63-1) ...
+#8 22.21 Setting up libctf-nobfd0:arm64 (2.44-3) ...
+#8 22.22 Setting up libgomp1:arm64 (14.2.0-19) ...
+#8 22.22 Setting up libsframe1:arm64 (2.44-3) ...
+#8 22.22 Setting up libjansson4:arm64 (2.14-2+b3) ...
+#8 22.22 Setting up rpcsvc-proto (1.4.3-1+b1) ...
+#8 22.22 Setting up libmpfr6:arm64 (4.2.2-1) ...
+#8 22.23 Setting up libmpc3:arm64 (1.3.1-1+b3) ...
+#8 22.23 Setting up libatomic1:arm64 (14.2.0-19) ...
+#8 22.23 Setting up libubsan1:arm64 (14.2.0-19) ...
+#8 22.23 Setting up libhwasan0:arm64 (14.2.0-19) ...
+#8 22.23 Setting up libcrypt-dev:arm64 (1:4.4.38-1) ...
+#8 22.24 Setting up libasan8:arm64 (14.2.0-19) ...
+#8 22.24 Setting up libtsan2:arm64 (14.2.0-19) ...
+#8 22.24 Setting up libbinutils:arm64 (2.44-3) ...
+#8 22.24 Setting up libisl23:arm64 (0.27-1) ...
+#8 22.24 Setting up libc-dev-bin (2.41-12+deb13u1) ...
+#8 22.25 Setting up libcc1-0:arm64 (14.2.0-19) ...
+#8 22.25 Setting up liblsan0:arm64 (14.2.0-19) ...
+#8 22.25 Setting up libitm1:arm64 (14.2.0-19) ...
+#8 22.25 Setting up libctf0:arm64 (2.44-3) ...
+#8 22.25 Setting up manpages-dev (6.9.1-1) ...
+#8 22.26 Setting up binutils-aarch64-linux-gnu (2.44-3) ...
+#8 22.26 Setting up libgprofng0:arm64 (2.44-3) ...
+#8 22.26 Setting up cpp-14-aarch64-linux-gnu (14.2.0-19) ...
+#8 22.26 Setting up libc6-dev:arm64 (2.41-12+deb13u1) ...
+#8 22.26 Setting up libgcc-14-dev:arm64 (14.2.0-19) ...
+#8 22.26 Setting up binutils (2.44-3) ...
+#8 22.27 Setting up cpp-aarch64-linux-gnu (4:14.2.0-1) ...
+#8 22.27 Setting up cpp-14 (14.2.0-19) ...
+#8 22.27 Setting up cpp (4:14.2.0-1) ...
+#8 22.28 Setting up gcc-14-aarch64-linux-gnu (14.2.0-19) ...
+#8 22.28 Setting up gcc-aarch64-linux-gnu (4:14.2.0-1) ...
+#8 22.28 Setting up gcc-14 (14.2.0-19) ...
+#8 22.28 Setting up gcc (4:14.2.0-1) ...
+#8 22.29 Processing triggers for libc-bin (2.41-12+deb13u1) ...
+#8 DONE 22.4s
+
+#9 [4/8] COPY requirements.txt .
+#9 DONE 0.0s
+
+#10 [5/8] RUN pip install --no-cache-dir -r requirements.txt
+#10 0.813 Collecting requests>=2.28.0 (from -r requirements.txt (line 1))
+#10 0.916   Downloading requests-2.32.5-py3-none-any.whl.metadata (4.9 kB)
+#10 1.367 Collecting boto3>=1.26.0 (from -r requirements.txt (line 2))
+#10 1.393   Downloading boto3-1.42.27-py3-none-any.whl.metadata (6.8 kB)
+#10 1.582 Collecting pandas>=1.5.0 (from -r requirements.txt (line 3))
+#10 1.620   Downloading pandas-2.3.3-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (91 kB)
+#10 1.691      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 91.2/91.2 kB 1.3 MB/s eta 0:00:00
+#10 1.793 Collecting pyarrow>=10.0.0 (from -r requirements.txt (line 4))
+#10 1.819   Downloading pyarrow-22.0.0-cp311-cp311-manylinux_2_28_aarch64.whl.metadata (3.2 kB)
+#10 1.853 Collecting asyncio (from -r requirements.txt (line 5))
+#10 1.885   Downloading asyncio-4.0.0-py3-none-any.whl.metadata (994 bytes)
+#10 2.393 Collecting aiohttp>=3.9.0 (from -r requirements.txt (line 6))
+#10 2.448   Downloading aiohttp-3.13.3-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (8.1 kB)
+#10 2.497 Collecting mcp>=1.0.0 (from -r requirements.txt (line 7))
+#10 2.518   Downloading mcp-1.25.0-py3-none-any.whl.metadata (89 kB)
+#10 2.533      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 89.5/89.5 kB 7.3 MB/s eta 0:00:00
+#10 2.633 Collecting charset_normalizer<4,>=2 (from requests>=2.28.0->-r requirements.txt (line 1))
+#10 2.681   Downloading charset_normalizer-3.4.4-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (37 kB)
+#10 2.731 Collecting idna<4,>=2.5 (from requests>=2.28.0->-r requirements.txt (line 1))
+#10 2.758   Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+#10 2.843 Collecting urllib3<3,>=1.21.1 (from requests>=2.28.0->-r requirements.txt (line 1))
+#10 2.863   Downloading urllib3-2.6.3-py3-none-any.whl.metadata (6.9 kB)
+#10 2.909 Collecting certifi>=2017.4.17 (from requests>=2.28.0->-r requirements.txt (line 1))
+#10 2.935   Downloading certifi-2026.1.4-py3-none-any.whl.metadata (2.5 kB)
+#10 3.240 Collecting botocore<1.43.0,>=1.42.27 (from boto3>=1.26.0->-r requirements.txt (line 2))
+#10 3.268   Downloading botocore-1.42.27-py3-none-any.whl.metadata (5.9 kB)
+#10 3.305 Collecting jmespath<2.0.0,>=0.7.1 (from boto3>=1.26.0->-r requirements.txt (line 2))
+#10 3.328   Downloading jmespath-1.0.1-py3-none-any.whl.metadata (7.6 kB)
+#10 3.366 Collecting s3transfer<0.17.0,>=0.16.0 (from boto3>=1.26.0->-r requirements.txt (line 2))
+#10 3.428   Downloading s3transfer-0.16.0-py3-none-any.whl.metadata (1.7 kB)
+#10 3.692 Collecting numpy>=1.23.2 (from pandas>=1.5.0->-r requirements.txt (line 3))
+#10 3.719   Downloading numpy-2.4.1-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl.metadata (6.6 kB)
+#10 3.751 Collecting python-dateutil>=2.8.2 (from pandas>=1.5.0->-r requirements.txt (line 3))
+#10 3.780   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+#10 3.843 Collecting pytz>=2020.1 (from pandas>=1.5.0->-r requirements.txt (line 3))
+#10 3.872   Downloading pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
+#10 3.908 Collecting tzdata>=2022.7 (from pandas>=1.5.0->-r requirements.txt (line 3))
+#10 3.965   Downloading tzdata-2025.3-py2.py3-none-any.whl.metadata (1.4 kB)
+#10 4.014 Collecting aiohappyeyeballs>=2.5.0 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.039   Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+#10 4.072 Collecting aiosignal>=1.4.0 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.104   Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+#10 4.264 Collecting attrs>=17.3.0 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.297   Downloading attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
+#10 4.399 Collecting frozenlist>=1.1.1 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.450   Downloading frozenlist-1.8.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (20 kB)
+#10 4.681 Collecting multidict<7.0,>=4.5 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.710   Downloading multidict-6.7.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (5.3 kB)
+#10 4.767 Collecting propcache>=0.2.0 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 4.794   Downloading propcache-0.4.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (13 kB)
+#10 5.046 Collecting yarl<2.0,>=1.17.0 (from aiohttp>=3.9.0->-r requirements.txt (line 6))
+#10 5.085   Downloading yarl-1.22.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (75 kB)
+#10 5.096      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 75.1/75.1 kB 16.6 MB/s eta 0:00:00
+#10 5.144 Collecting anyio>=4.5 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.268   Downloading anyio-4.12.1-py3-none-any.whl.metadata (4.3 kB)
+#10 5.304 Collecting httpx-sse>=0.4 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.339   Downloading httpx_sse-0.4.3-py3-none-any.whl.metadata (9.7 kB)
+#10 5.432 Collecting httpx>=0.27.1 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.460   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+#10 5.528 Collecting jsonschema>=4.20.0 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.582   Downloading jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+#10 5.644 Collecting pydantic-settings>=2.5.2 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.693   Downloading pydantic_settings-2.12.0-py3-none-any.whl.metadata (3.4 kB)
+#10 5.845 Collecting pydantic<3.0.0,>=2.11.0 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.866   Downloading pydantic-2.12.5-py3-none-any.whl.metadata (90 kB)
+#10 5.883      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.6/90.6 kB 6.1 MB/s eta 0:00:00
+#10 5.940 Collecting pyjwt>=2.10.1 (from pyjwt[crypto]>=2.10.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 5.986   Downloading PyJWT-2.10.1-py3-none-any.whl.metadata (4.0 kB)
+#10 6.022 Collecting python-multipart>=0.0.9 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.060   Downloading python_multipart-0.0.21-py3-none-any.whl.metadata (1.8 kB)
+#10 6.109 Collecting sse-starlette>=1.6.1 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.137   Downloading sse_starlette-3.1.2-py3-none-any.whl.metadata (12 kB)
+#10 6.273 Collecting starlette>=0.27 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.361   Downloading starlette-0.51.0-py3-none-any.whl.metadata (6.3 kB)
+#10 6.437 Collecting typing-extensions>=4.9.0 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.510   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+#10 6.557 Collecting typing-inspection>=0.4.1 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.585   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+#10 6.654 Collecting uvicorn>=0.31.1 (from mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.717   Downloading uvicorn-0.40.0-py3-none-any.whl.metadata (6.7 kB)
+#10 6.800 Collecting httpcore==1.* (from httpx>=0.27.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.826   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+#10 6.855 Collecting h11>=0.16 (from httpcore==1.*->httpx>=0.27.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.906   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+#10 6.946 Collecting jsonschema-specifications>=2023.03.6 (from jsonschema>=4.20.0->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 6.980   Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+#10 7.037 Collecting referencing>=0.28.4 (from jsonschema>=4.20.0->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 7.061   Downloading referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+#10 7.342 Collecting rpds-py>=0.25.0 (from jsonschema>=4.20.0->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 7.400   Downloading rpds_py-0.30.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (4.1 kB)
+#10 7.447 Collecting annotated-types>=0.6.0 (from pydantic<3.0.0,>=2.11.0->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 7.469   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+#10 8.035 Collecting pydantic-core==2.41.5 (from pydantic<3.0.0,>=2.11.0->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.063   Downloading pydantic_core-2.41.5-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (7.3 kB)
+#10 8.114 Collecting python-dotenv>=0.21.0 (from pydantic-settings>=2.5.2->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.143   Downloading python_dotenv-1.2.1-py3-none-any.whl.metadata (25 kB)
+#10 8.350 Collecting cryptography>=3.4.0 (from pyjwt[crypto]>=2.10.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.449   Downloading cryptography-46.0.3-cp311-abi3-manylinux_2_34_aarch64.whl.metadata (5.7 kB)
+#10 8.499 Collecting six>=1.5 (from python-dateutil>=2.8.2->pandas>=1.5.0->-r requirements.txt (line 3))
+#10 8.528   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+#10 8.641 Collecting click>=7.0 (from uvicorn>=0.31.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.673   Downloading click-8.3.1-py3-none-any.whl.metadata (2.6 kB)
+#10 8.799 Collecting cffi>=2.0.0 (from cryptography>=3.4.0->pyjwt[crypto]>=2.10.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.822   Downloading cffi-2.0.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl.metadata (2.6 kB)
+#10 8.872 Collecting pycparser (from cffi>=2.0.0->cryptography>=3.4.0->pyjwt[crypto]>=2.10.1->mcp>=1.0.0->-r requirements.txt (line 7))
+#10 8.903   Downloading pycparser-2.23-py3-none-any.whl.metadata (993 bytes)
+#10 8.960 Downloading requests-2.32.5-py3-none-any.whl (64 kB)
+#10 8.973    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 64.7/64.7 kB 8.2 MB/s eta 0:00:00
+#10 9.007 Downloading boto3-1.42.27-py3-none-any.whl (140 kB)
+#10 9.028    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 140.6/140.6 kB 6.7 MB/s eta 0:00:00
+#10 9.053 Downloading pandas-2.3.3-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (12.2 MB)
+#10 11.69    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.2/12.2 MB 4.8 MB/s eta 0:00:00
+#10 11.72 Downloading pyarrow-22.0.0-cp311-cp311-manylinux_2_28_aarch64.whl (45.0 MB)
+#10 24.86    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.0/45.0 MB 2.5 MB/s eta 0:00:00
+#10 24.90 Downloading asyncio-4.0.0-py3-none-any.whl (5.6 kB)
+#10 24.93 Downloading aiohttp-3.13.3-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (1.7 MB)
+#10 25.47    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.7/1.7 MB 3.3 MB/s eta 0:00:00
+#10 25.51 Downloading mcp-1.25.0-py3-none-any.whl (233 kB)
+#10 25.55    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 233.1/233.1 kB 5.8 MB/s eta 0:00:00
+#10 25.58 Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+#10 25.64 Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+#10 25.68 Downloading anyio-4.12.1-py3-none-any.whl (113 kB)
+#10 25.71    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 113.6/113.6 kB 4.2 MB/s eta 0:00:00
+#10 25.74 Downloading attrs-25.4.0-py3-none-any.whl (67 kB)
+#10 25.75    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.6/67.6 kB 7.9 MB/s eta 0:00:00
+#10 25.78 Downloading botocore-1.42.27-py3-none-any.whl (14.6 MB)
+#10 29.24    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.6/14.6 MB 4.2 MB/s eta 0:00:00
+#10 29.27 Downloading certifi-2026.1.4-py3-none-any.whl (152 kB)
+#10 29.42    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 152.9/152.9 kB 965.6 kB/s eta 0:00:00
+#10 29.45 Downloading charset_normalizer-3.4.4-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (147 kB)
+#10 29.49    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 147.3/147.3 kB 4.0 MB/s eta 0:00:00
+#10 29.55 Downloading frozenlist-1.8.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (233 kB)
+#10 29.60    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 233.2/233.2 kB 4.1 MB/s eta 0:00:00
+#10 29.72 Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+#10 29.75    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 73.5/73.5 kB 8.1 MB/s eta 0:00:00
+#10 29.78 Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+#10 29.80    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.8/78.8 kB 3.4 MB/s eta 0:00:00
+#10 29.84 Downloading httpx_sse-0.4.3-py3-none-any.whl (9.0 kB)
+#10 29.87 Downloading idna-3.11-py3-none-any.whl (71 kB)
+#10 29.88    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 71.0/71.0 kB 5.7 MB/s eta 0:00:00
+#10 29.95 Downloading jmespath-1.0.1-py3-none-any.whl (20 kB)
+#10 29.98 Downloading jsonschema-4.26.0-py3-none-any.whl (90 kB)
+#10 30.00    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.6/90.6 kB 4.8 MB/s eta 0:00:00
+#10 30.03 Downloading multidict-6.7.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (246 kB)
+#10 30.08    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 246.7/246.7 kB 5.9 MB/s eta 0:00:00
+#10 30.10 Downloading numpy-2.4.1-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl (14.7 MB)
+#10 33.74    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14.7/14.7 MB 4.3 MB/s eta 0:00:00
+#10 33.77 Downloading propcache-0.4.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (214 kB)
+#10 33.86    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 214.9/214.9 kB 2.3 MB/s eta 0:00:00
+#10 33.90 Downloading pydantic-2.12.5-py3-none-any.whl (463 kB)
+#10 34.04    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 463.6/463.6 kB 3.5 MB/s eta 0:00:00
+#10 34.07 Downloading pydantic_core-2.41.5-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (1.9 MB)
+#10 34.48    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.9/1.9 MB 4.8 MB/s eta 0:00:00
+#10 34.53 Downloading pydantic_settings-2.12.0-py3-none-any.whl (51 kB)
+#10 34.63    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 51.9/51.9 kB 148.6 MB/s eta 0:00:00
+#10 34.68 Downloading PyJWT-2.10.1-py3-none-any.whl (22 kB)
+#10 34.71 Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+#10 34.76    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 229.9/229.9 kB 5.6 MB/s eta 0:00:00
+#10 34.80 Downloading python_multipart-0.0.21-py3-none-any.whl (24 kB)
+#10 34.86 Downloading pytz-2025.2-py2.py3-none-any.whl (509 kB)
+#10 34.99    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 509.2/509.2 kB 4.2 MB/s eta 0:00:00
+#10 35.01 Downloading s3transfer-0.16.0-py3-none-any.whl (86 kB)
+#10 35.04    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 86.8/86.8 kB 22.5 MB/s eta 0:00:00
+#10 35.08 Downloading sse_starlette-3.1.2-py3-none-any.whl (12 kB)
+#10 35.12 Downloading starlette-0.51.0-py3-none-any.whl (74 kB)
+#10 35.17    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 74.1/74.1 kB 1.3 MB/s eta 0:00:00
+#10 35.20 Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+#10 35.20    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 44.6/44.6 kB 14.5 MB/s eta 0:00:00
+#10 35.24 Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+#10 35.27 Downloading tzdata-2025.3-py2.py3-none-any.whl (348 kB)
+#10 35.37    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 348.5/348.5 kB 3.6 MB/s eta 0:00:00
+#10 35.40 Downloading urllib3-2.6.3-py3-none-any.whl (131 kB)
+#10 35.43    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 131.6/131.6 kB 5.6 MB/s eta 0:00:00
+#10 35.46 Downloading uvicorn-0.40.0-py3-none-any.whl (68 kB)
+#10 35.48    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 68.5/68.5 kB 8.7 MB/s eta 0:00:00
+#10 35.51 Downloading yarl-1.22.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (368 kB)
+#10 35.86    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 368.4/368.4 kB 1.0 MB/s eta 0:00:00
+#10 35.90 Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+#10 35.94 Downloading click-8.3.1-py3-none-any.whl (108 kB)
+#10 35.98    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 108.3/108.3 kB 2.6 MB/s eta 0:00:00
+#10 36.00 Downloading cryptography-46.0.3-cp311-abi3-manylinux_2_34_aarch64.whl (4.3 MB)
+#10 37.03    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.3/4.3 MB 4.2 MB/s eta 0:00:00
+#10 37.06 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+#10 37.09 Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+#10 37.13 Downloading python_dotenv-1.2.1-py3-none-any.whl (21 kB)
+#10 37.16 Downloading referencing-0.37.0-py3-none-any.whl (26 kB)
+#10 37.20 Downloading rpds_py-0.30.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (389 kB)
+#10 37.33    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 389.9/389.9 kB 3.1 MB/s eta 0:00:00
+#10 37.35 Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+#10 37.41 Downloading cffi-2.0.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl (216 kB)
+#10 37.44    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 216.5/216.5 kB 7.0 MB/s eta 0:00:00
+#10 37.48 Downloading pycparser-2.23-py3-none-any.whl (118 kB)
+#10 37.50    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 118.1/118.1 kB 7.7 MB/s eta 0:00:00
+#10 37.68 Installing collected packages: pytz, urllib3, tzdata, typing-extensions, six, rpds-py, python-multipart, python-dotenv, pyjwt, pycparser, pyarrow, propcache, numpy, multidict, jmespath, idna, httpx-sse, h11, frozenlist, click, charset_normalizer, certifi, attrs, asyncio, annotated-types, aiohappyeyeballs, yarl, uvicorn, typing-inspection, requests, referencing, python-dateutil, pydantic-core, httpcore, cffi, anyio, aiosignal, starlette, pydantic, pandas, jsonschema-specifications, httpx, cryptography, botocore, aiohttp, sse-starlette, s3transfer, pydantic-settings, jsonschema, mcp, boto3
+#10 41.39 Successfully installed aiohappyeyeballs-2.6.1 aiohttp-3.13.3 aiosignal-1.4.0 annotated-types-0.7.0 anyio-4.12.1 asyncio-4.0.0 attrs-25.4.0 boto3-1.42.27 botocore-1.42.27 certifi-2026.1.4 cffi-2.0.0 charset_normalizer-3.4.4 click-8.3.1 cryptography-46.0.3 frozenlist-1.8.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 httpx-sse-0.4.3 idna-3.11 jmespath-1.0.1 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 mcp-1.25.0 multidict-6.7.0 numpy-2.4.1 pandas-2.3.3 propcache-0.4.1 pyarrow-22.0.0 pycparser-2.23 pydantic-2.12.5 pydantic-core-2.41.5 pydantic-settings-2.12.0 pyjwt-2.10.1 python-dateutil-2.9.0.post0 python-dotenv-1.2.1 python-multipart-0.0.21 pytz-2025.2 referencing-0.37.0 requests-2.32.5 rpds-py-0.30.0 s3transfer-0.16.0 six-1.17.0 sse-starlette-3.1.2 starlette-0.51.0 typing-extensions-4.15.0 typing-inspection-0.4.2 tzdata-2025.3 urllib3-2.6.3 uvicorn-0.40.0 yarl-1.22.0
+#10 41.39 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+#10 41.55 
+#10 41.55 [notice] A new release of pip is available: 24.0 -> 25.3
+#10 41.55 [notice] To update, run: pip install --upgrade pip
+#10 DONE 42.3s
+
+#11 [6/8] COPY mcp_servers/ ./mcp_servers/
+#11 DONE 0.0s
+
+#12 [7/8] COPY server_mcp_streamable.py .
+#12 DONE 0.0s
+
+#13 [8/8] RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+#13 DONE 0.1s
+
+#14 exporting to image
+#14 exporting layers
+#14 exporting layers 5.3s done
+#14 exporting manifest sha256:c894e935694c6cb904dd76392a140f8d04a1159aadb546de9a65333c54c01f83 done
+#14 exporting config sha256:65355162bd39da4aa65de319dea73451ede5d1226ca9d8d8a036431988eafdd5 done
+#14 exporting attestation manifest sha256:5b7efbea4f7aa26fc7787457e38d8cc78c8920db0d1f86e6af2ce13de953fe59 done
+#14 exporting manifest list sha256:2dfdffcb65ee8e16577542fe95ebc2ffefde0a057e0440062ad7a90a4e1a6b4b done
+#14 naming to docker.io/library/estat-mcp-server:athena-fix-20260114_101950 done
+#14 unpacking to docker.io/library/estat-mcp-server:athena-fix-20260114_101950
+#14 unpacking to docker.io/library/estat-mcp-server:athena-fix-20260114_101950 1.6s done
+#14 naming to docker.io/library/estat-mcp-server:latest done
+#14 unpacking to docker.io/library/estat-mcp-server:latest done
+#14 DONE 6.9s
+[0;32m✓ イメージビルド完了[0m
+  タグ: athena-fix-20260114_101950
+
+[1;33mStep 4: ECRにログイン...[0m
+Login Succeeded
+[0;32m✓ ECRログイン成功[0m
+
+[1;33mStep 5: イメージをECRにプッシュ...[0m
+  プッシュ中: 639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server:athena-fix-20260114_101950
+The push refers to repository [639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server]
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+068949646e5a: Waiting
+518abaec573a: Waiting
+0a1d43890fae: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+99a1b5bd7e58: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+068949646e5a: Waiting
+518abaec573a: Waiting
+0a1d43890fae: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+99a1b5bd7e58: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+99a1b5bd7e58: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+068949646e5a: Waiting
+518abaec573a: Waiting
+0a1d43890fae: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+0a1d43890fae: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+99a1b5bd7e58: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+068949646e5a: Waiting
+518abaec573a: Waiting
+62493eb0c5a6: Waiting
+068949646e5a: Waiting
+0a1d43890fae: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+99a1b5bd7e58: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+cb9a7b0199b5: Waiting
+d67bedf18e0a: Waiting
+cb9a7b0199b5: Pushed
+518abaec573a: Pushed
+92a25418760a: Pushed
+381af0f2e2ad: Pushed
+0a1d43890fae: Pushed
+70518cfbe6f3: Pushed
+62493eb0c5a6: Pushed
+d67bedf18e0a: Pushed
+068949646e5a: Pushed
+d637807aba98: Pushed
+99a1b5bd7e58: Pushed
+5a66d22ccd6b: Pushed
+athena-fix-20260114_101950: digest: sha256:2dfdffcb65ee8e16577542fe95ebc2ffefde0a057e0440062ad7a90a4e1a6b4b size: 856
+  プッシュ中: 639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server:latest
+The push refers to repository [639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server]
+70518cfbe6f3: Waiting
+068949646e5a: Waiting
+0a1d43890fae: Waiting
+518abaec573a: Waiting
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+d637807aba98: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+99a1b5bd7e58: Waiting
+d67bedf18e0a: Waiting
+5a66d22ccd6b: Waiting
+d67bedf18e0a: Waiting
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+068949646e5a: Waiting
+0a1d43890fae: Waiting
+518abaec573a: Waiting
+cb9a7b0199b5: Waiting
+62493eb0c5a6: Waiting
+d637807aba98: Waiting
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+99a1b5bd7e58: Waiting
+068949646e5a: Waiting
+0a1d43890fae: Waiting
+518abaec573a: Waiting
+cb9a7b0199b5: Already exists
+62493eb0c5a6: Layer already exists
+d637807aba98: Layer already exists
+92a25418760a: Waiting
+381af0f2e2ad: Waiting
+99a1b5bd7e58: Waiting
+d67bedf18e0a: Layer already exists
+5a66d22ccd6b: Waiting
+70518cfbe6f3: Waiting
+381af0f2e2ad: Layer already exists
+99a1b5bd7e58: Layer already exists
+5a66d22ccd6b: Layer already exists
+70518cfbe6f3: Layer already exists
+068949646e5a: Layer already exists
+0a1d43890fae: Layer already exists
+518abaec573a: Layer already exists
+92a25418760a: Layer already exists
+latest: digest: sha256:2dfdffcb65ee8e16577542fe95ebc2ffefde0a057e0440062ad7a90a4e1a6b4b size: 856
+[0;32m✓ イメージプッシュ完了[0m
+
+[1;33mStep 6: 新しいタスク定義を登録...[0m
+[0;32m✓ 新しいタスク定義を登録: arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:19[0m
+
+[1;33mStep 7: ECSサービスを更新...[0m
+[0;32m✓ サービス更新を開始[0m
+
+[1;33mStep 8: デプロイの進行状況を監視...[0m
+  新しいタスクの起動を待機中...
+
+  [0;34m進行状況: 0/0 タスクが実行中[0m
+  [0;34m進行状況: 0/0 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+  [0;34m進行状況: 0/1 タスクが実行中[0m
+[1;33m⚠ タイムアウト: デプロイに時間がかかっています[0m
+  手動で確認してください:
+  aws ecs describe-services --cluster estat-mcp-cluster --services estat-mcp-service --region ap-northeast-1
+[1;33mStep 9: 動作確認...[0m
+  API URL: http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com
+
+  ヘルスチェック実行中...
+  結果: {"status": "healthy", "timestamp": "2026-01-14T01:36:00.032869"}
+[0;32m✓ サービスは正常に動作しています[0m
+
+[1;33mStep 10: クリーンアップ...[0m
+[0;32m✓ 一時ファイルを削除[0m
+
+[0;34m==========================================
+更新完了サマリー
+==========================================[0m
+
+[0;32m✓ 新しいイメージ:[0m 639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server:athena-fix-20260114_101950
+[0;32m✓ タスク定義:[0m arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:19
+[0;32m✓ サービス:[0m estat-mcp-service
+
+[1;33mAPI エンドポイント:[0m
+  http://estat-mcp-alb-633149734.ap-northeast-1.elb.amazonaws.com
+
+[1;33m修正内容の確認:[0m
+  1. load_to_icebergツールをテスト
+  2. analyze_with_athenaツールをテスト
+  3. エラーメッセージが改善されていることを確認
+
+[1;33mログの確認:[0m
+  aws logs tail /ecs/estat-mcp --follow --region ap-northeast-1
+
+[1;33mロールバック方法:[0m
+  以前のタスク定義に戻す場合:
+  aws ecs update-service --cluster estat-mcp-cluster --service estat-mcp-service --task-definition <previous-task-def> --region ap-northeast-1
+
+[0;32m==========================================
+ECR更新が完了しました！
+==========================================[0m

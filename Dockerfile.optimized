@@ -1,0 +1,69 @@
+# マルチステージビルドで最適化されたDockerfile
+# 目標: イメージサイズを1GB → 300MB以下に削減
+
+# ========================================
+# ステージ1: ビルド環境
+# ========================================
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# ビルドに必要な最小限のパッケージをインストール
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# 依存関係をインストール（wheelを作成）
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# ========================================
+# ステージ2: 実行環境（最小化）
+# ========================================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# ビルドステージからPythonパッケージをコピー
+# rootユーザーでインストールしたパッケージをコピー
+COPY --from=builder /root/.local /usr/local
+
+# PATHを更新（念のため）
+ENV PATH=/usr/local/bin:$PATH \
+    PYTHONPATH=/usr/local/lib/python3.11/site-packages:$PYTHONPATH
+
+# アプリケーションのコピー（必要なファイルのみ）
+COPY mcp_servers/ ./mcp_servers/
+COPY server_mcp_streamable.py .
+
+# 不要なファイルを削除（__pycache__等）
+RUN find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
+    find . -type f -name "*.pyc" -delete && \
+    find . -type f -name "*.pyo" -delete
+
+# ポート公開
+EXPOSE 8080
+
+# 環境変数のデフォルト値
+ENV ESTAT_APP_ID="" \
+    S3_BUCKET="estat-data-lake" \
+    AWS_REGION="ap-northeast-1" \
+    PORT=8080 \
+    TRANSPORT_MODE="streamable-http" \
+    TRANSPORT_HOST="0.0.0.0" \
+    MCP_SESSION_MODE="stateless" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# ヘルスチェック（軽量化）
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+# 非rootユーザーで実行
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# サーバー起動
+CMD ["python", "-u", "server_mcp_streamable.py"]

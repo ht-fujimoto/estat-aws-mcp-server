@@ -1,0 +1,140 @@
+==========================================
+ECS Fargate MCP更新（url/httpUrl型対応）
+==========================================
+
+1. Dockerイメージをビルド（amd64アーキテクチャ）...
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.09kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 ...
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 5.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [1/8] FROM docker.io/library/python:3.11-slim@sha256:2b6ff3fa5bbd16430f20e7465ad0c7ef059333f350c8a6e848b5b109789a88e3
+#5 resolve docker.io/library/python:3.11-slim@sha256:2b6ff3fa5bbd16430f20e7465ad0c7ef059333f350c8a6e848b5b109789a88e3 done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 86.36kB done
+#6 DONE 0.0s
+
+#7 [2/8] WORKDIR /app
+#7 CACHED
+
+#8 [3/8] RUN apt-get update && apt-get install -y     gcc     && rm -rf /var/lib/apt/lists/*
+#8 CACHED
+
+#9 [4/8] COPY requirements.txt .
+#9 CACHED
+
+#10 [5/8] RUN pip install --no-cache-dir -r requirements.txt
+#10 CACHED
+
+#11 [6/8] COPY mcp_servers/ ./mcp_servers/
+#11 DONE 0.0s
+
+#12 [7/8] COPY server_mcp_streamable.py .
+#12 DONE 0.0s
+
+#13 [8/8] RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+#13 DONE 0.2s
+
+#14 exporting to image
+#14 exporting layers 0.0s done
+#14 exporting manifest sha256:11d510195db2acb29f3d3c34aa80777323ad3a3dc8a834d40c6fa5ba15c9d63c done
+#14 exporting config sha256:9fe85fe120a7c2b089c50c4cedc5c017e783d063b1835611aeb9e6d6c3e6aae8 done
+#14 exporting attestation manifest sha256:5106711ed7486398d5b8648a6d34be91e2ca58ae73c1ef6de5fa0d63678dd301 done
+#14 exporting manifest list sha256:53f7c2015c6f979cf4313bb739433e8a0ef0c9cb8003e2e5c15a5765b153e11f done
+#14 naming to docker.io/library/estat-mcp-server:latest done
+#14 DONE 0.0s
+✅ イメージビルド完了
+
+2. ECRにログイン...
+Login Succeeded
+✅ ECRログイン成功
+
+3. イメージをECRにプッシュ...
+The push refers to repository [639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server]
+0b2bf04f68e9: Waiting
+119d43eec815: Waiting
+7e42fdb0f66f: Waiting
+d4e0ebc40f8d: Waiting
+f2ddc723b8dd: Waiting
+c102a99bc30f: Waiting
+f89123028905: Waiting
+7cad54c6b55d: Waiting
+9816e2399566: Waiting
+5b09819094bb: Waiting
+3e731abb5c1d: Waiting
+493a70d07f46: Waiting
+7e42fdb0f66f: Waiting
+d4e0ebc40f8d: Waiting
+f2ddc723b8dd: Waiting
+c102a99bc30f: Waiting
+f89123028905: Waiting
+7cad54c6b55d: Waiting
+9816e2399566: Waiting
+5b09819094bb: Waiting
+3e731abb5c1d: Waiting
+493a70d07f46: Waiting
+0b2bf04f68e9: Waiting
+119d43eec815: Waiting
+7e42fdb0f66f: Waiting
+d4e0ebc40f8d: Waiting
+f2ddc723b8dd: Waiting
+c102a99bc30f: Waiting
+f89123028905: Waiting
+7cad54c6b55d: Waiting
+9816e2399566: Waiting
+5b09819094bb: Waiting
+3e731abb5c1d: Waiting
+493a70d07f46: Waiting
+0b2bf04f68e9: Waiting
+119d43eec815: Waiting
+7e42fdb0f66f: Waiting
+d4e0ebc40f8d: Waiting
+f2ddc723b8dd: Waiting
+c102a99bc30f: Waiting
+f89123028905: Waiting
+7cad54c6b55d: Waiting
+9816e2399566: Waiting
+5b09819094bb: Waiting
+3e731abb5c1d: Waiting
+493a70d07f46: Waiting
+0b2bf04f68e9: Waiting
+119d43eec815: Waiting
+9816e2399566: Waiting
+5b09819094bb: Waiting
+3e731abb5c1d: Waiting
+493a70d07f46: Waiting
+0b2bf04f68e9: Waiting
+119d43eec815: Waiting
+7e42fdb0f66f: Waiting
+d4e0ebc40f8d: Waiting
+f2ddc723b8dd: Waiting
+c102a99bc30f: Waiting
+f89123028905: Waiting
+7cad54c6b55d: Waiting
+d4e0ebc40f8d: Waiting
+9816e2399566: Pushed
+493a70d07f46: Pushed
+7e42fdb0f66f: Pushed
+f89123028905: Pushed
+7cad54c6b55d: Pushed
+0b2bf04f68e9: Pushed
+d4e0ebc40f8d: Pushed
+5b09819094bb: Pushed
+3e731abb5c1d: Pushed
+119d43eec815: Pushed
