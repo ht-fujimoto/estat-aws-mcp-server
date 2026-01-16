@@ -1712,9 +1712,9 @@ class EStatAWSServer:
                     data = json.load(f)
             
             else:
-                # データソースが指定されていない場合、最新のデータを取得
+                # データソースが指定されていない場合、最新のデータを取得してS3に保存
                 logger.info(f"No data source specified, fetching fresh data for dataset: {dataset_id}")
-                fetch_result = await self.fetch_dataset_auto(dataset_id, save_to_s3=False, convert_to_japanese=True)
+                fetch_result = await self.fetch_dataset_auto(dataset_id, save_to_s3=True, convert_to_japanese=True)
                 
                 if not fetch_result.get('success'):
                     return {
@@ -1722,14 +1722,47 @@ class EStatAWSServer:
                         "error": "Failed to fetch dataset and no data source provided"
                     }
                 
-                # fetch_dataset_autoの結果からデータを構築
-                # 注意: この場合、完全なe-Stat APIレスポンス形式ではなく、簡略化されたデータ
-                sample_data = fetch_result.get('sample_data', [])
-                if not sample_data:
-                    return {"success": False, "error": "No data available for CSV conversion"}
+                # fetch_dataset_autoで保存されたS3パスを取得
+                s3_location = fetch_result.get('s3_location')
+                if not s3_location:
+                    return {
+                        "success": False,
+                        "error": "Data was fetched but S3 location not available"
+                    }
                 
-                # DataFrameに直接変換
-                df = pd.DataFrame(sample_data)
+                logger.info(f"Data fetched and saved to: {s3_location}")
+                logger.info(f"Now loading from S3 to convert to CSV...")
+                
+                # S3からJSONを読み込み
+                if not self.s3_client:
+                    return {"success": False, "error": "S3 client not initialized"}
+                
+                # S3パスをパース
+                if s3_location.startswith('s3://'):
+                    s3_location = s3_location[5:]
+                
+                parts = s3_location.split('/', 1)
+                bucket = parts[0]
+                key = parts[1] if len(parts) > 1 else ''
+                
+                logger.info(f"Reading from S3 bucket: {bucket}, key: {key}")
+                response = self.s3_client.get_object(Bucket=bucket, Key=key)
+                data = json.loads(response['Body'].read().decode('utf-8'))
+                
+                # データを抽出
+                stats_data = data.get('GET_STATS_DATA', {}).get('STATISTICAL_DATA', {})
+                value_list = stats_data.get('DATA_INF', {}).get('VALUE', [])
+                
+                if isinstance(value_list, dict):
+                    value_list = [value_list]
+                
+                if not value_list:
+                    return {"success": False, "error": "No data found in fetched JSON"}
+                
+                logger.info(f"Converting {len(value_list):,} records to CSV")
+                
+                # DataFrameに変換
+                df = pd.DataFrame(value_list)
                 
                 # 出力ファイル名を決定
                 if not output_filename:
@@ -1745,23 +1778,7 @@ class EStatAWSServer:
                 s3_key = f"csv/{output_filename}"
                 
                 if not self.s3_client:
-                    # S3が利用できない場合、ローカルに保存
-                    local_csv_path = output_filename
-                    with open(local_csv_path, 'w', encoding='utf-8-sig') as f:
-                        f.write(csv_content)
-                    
-                    processing_time = (datetime.now() - start_time).total_seconds()
-                    log_tool_result(logger, "save_dataset_as_csv", True, processing_time)
-                    
-                    return {
-                        "success": True,
-                        "dataset_id": dataset_id,
-                        "records_count": len(sample_data),
-                        "columns": list(df.columns),
-                        "local_path": local_csv_path,
-                        "filename": output_filename,
-                        "message": f"Successfully saved {len(sample_data):,} records as CSV locally (S3 not available)"
-                    }
+                    return {"success": False, "error": "S3 client not initialized"}
                 
                 try:
                     logger.info(f"Saving CSV to S3: s3://{S3_BUCKET}/{s3_key}")
@@ -1772,40 +1789,30 @@ class EStatAWSServer:
                         ContentType='text/csv'
                     )
                     
-                    s3_location = f"s3://{S3_BUCKET}/{s3_key}"
+                    s3_csv_location = f"s3://{S3_BUCKET}/{s3_key}"
                     
                     processing_time = (datetime.now() - start_time).total_seconds()
                     log_tool_result(logger, "save_dataset_as_csv", True, processing_time)
                     
-                    logger.info(f"CSV saved to: {s3_location}")
+                    logger.info(f"CSV saved to: {s3_csv_location}")
                     
                     return {
                         "success": True,
                         "dataset_id": dataset_id,
-                        "records_count": len(sample_data),
+                        "records_count": len(value_list),
                         "columns": list(df.columns),
-                        "s3_location": s3_location,
+                        "s3_location": s3_csv_location,
                         "s3_bucket": S3_BUCKET,
                         "s3_key": s3_key,
                         "filename": output_filename,
-                        "message": f"Successfully saved {len(sample_data):,} records as CSV to S3"
+                        "message": f"Successfully saved {len(value_list):,} records as CSV to S3"
                     }
                 except Exception as s3_error:
-                    logger.error(f"S3 save failed, falling back to local: {s3_error}")
-                    # S3保存に失敗した場合、ローカルに保存
-                    local_csv_path = output_filename
-                    with open(local_csv_path, 'w', encoding='utf-8-sig') as f:
-                        f.write(csv_content)
-                    
+                    logger.error(f"S3 save failed: {s3_error}")
                     return {
-                        "success": True,
-                        "dataset_id": dataset_id,
-                        "records_count": len(sample_data),
-                        "columns": list(df.columns),
-                        "local_path": local_csv_path,
-                        "filename": output_filename,
-                        "s3_error": str(s3_error),
-                        "message": f"Successfully saved {len(sample_data):,} records as CSV locally (S3 failed)"
+                        "success": False,
+                        "error": f"Failed to save CSV to S3: {str(s3_error)}",
+                        "dataset_id": dataset_id
                     }
             
             # 既存のJSONデータからCSV変換の処理
@@ -2007,7 +2014,229 @@ class EStatAWSServer:
             )
     
     # ========================================
-    # ツール11: download_csv_from_s3
+    # ツール11: save_metadata_as_csv
+    # ========================================
+    
+    async def save_metadata_as_csv(
+        self,
+        dataset_id: str,
+        output_filename: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        データセットのメタデータ情報（カテゴリー情報）をCSV形式でS3に保存
+        
+        Args:
+            dataset_id: データセットID
+            output_filename: 出力ファイル名（オプション）
+        
+        Returns:
+            保存結果
+        """
+        start_time = datetime.now()
+        log_tool_call(logger, "save_metadata_as_csv", {
+            "dataset_id": dataset_id,
+            "output_filename": output_filename
+        })
+        
+        try:
+            import pandas as pd
+            import io
+            
+            # メタデータを取得
+            logger.info(f"Fetching metadata for dataset: {dataset_id}")
+            meta_params = {"appId": self.app_id, "statsDataId": dataset_id}
+            meta_data = await self._call_estat_api("getMetaInfo", meta_params)
+            
+            # メタデータからカテゴリ情報を抽出
+            metadata_inf = meta_data.get('GET_META_INFO', {}).get('METADATA_INF', {})
+            table_inf = metadata_inf.get('TABLE_INF', {})
+            class_inf = metadata_inf.get('CLASS_INF', {})
+            class_obj_list = class_inf.get('CLASS_OBJ', [])
+            
+            if not isinstance(class_obj_list, list):
+                class_obj_list = [class_obj_list] if class_obj_list else []
+            
+            if not class_obj_list:
+                return {
+                    "success": False,
+                    "error": "No category information found in metadata",
+                    "dataset_id": dataset_id
+                }
+            
+            # 基本情報を取得
+            stat_name = table_inf.get('STAT_NAME', {}).get('$', '不明')
+            survey_date = table_inf.get('SURVEY_DATE', '不明')
+            total_records = table_inf.get('OVERALL_TOTAL_NUMBER', 0)
+            
+            # カテゴリ情報をCSV用のレコードリストに変換
+            records = []
+            
+            for class_obj in class_obj_list:
+                category_id = class_obj.get('@id', '')
+                category_name = class_obj.get('@name', '')
+                class_values = class_obj.get('CLASS', [])
+                
+                if not isinstance(class_values, list):
+                    class_values = [class_values] if class_values else []
+                
+                category_count = len(class_values)
+                
+                # 各カテゴリの値をレコードとして追加
+                for class_value in class_values:
+                    code = class_value.get('@code', '')
+                    name = class_value.get('@name', '')
+                    level = class_value.get('@level', '')
+                    parent_code = class_value.get('@parentCode', '')
+                    unit = class_value.get('@unit', '')
+                    
+                    records.append({
+                        'カテゴリID': category_id,
+                        'カテゴリ名': category_name,
+                        'カテゴリ数': category_count,
+                        'コード': code,
+                        '名称': name,
+                        'レベル': level,
+                        '親コード': parent_code,
+                        '単位': unit
+                    })
+            
+            if not records:
+                return {
+                    "success": False,
+                    "error": "No category data to save",
+                    "dataset_id": dataset_id
+                }
+            
+            logger.info(f"Converting {len(records)} category records to CSV")
+            
+            # DataFrameに変換
+            df = pd.DataFrame(records)
+            
+            # CSVに変換
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+            csv_content = csv_buffer.getvalue()
+            
+            # 出力ファイル名を決定
+            if not output_filename:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                output_filename = f"{dataset_id}_metadata_{timestamp}.csv"
+            
+            # S3に保存
+            s3_key = f"csv/metadata/{output_filename}"
+            
+            if not self.s3_client:
+                return {"success": False, "error": "S3 client not initialized"}
+            
+            try:
+                logger.info(f"Saving metadata CSV to S3: s3://{S3_BUCKET}/{s3_key}")
+                self.s3_client.put_object(
+                    Bucket=S3_BUCKET,
+                    Key=s3_key,
+                    Body=csv_content.encode('utf-8-sig'),
+                    ContentType='text/csv'
+                )
+                
+                s3_location = f"s3://{S3_BUCKET}/{s3_key}"
+                
+                processing_time = (datetime.now() - start_time).total_seconds()
+                log_tool_result(logger, "save_metadata_as_csv", True, processing_time)
+                
+                logger.info(f"Metadata CSV saved to: {s3_location}")
+                
+                return {
+                    "success": True,
+                    "dataset_id": dataset_id,
+                    "stat_name": stat_name,
+                    "survey_date": survey_date,
+                    "total_records": total_records,
+                    "category_records_count": len(records),
+                    "categories_count": len(class_obj_list),
+                    "columns": list(df.columns),
+                    "s3_location": s3_location,
+                    "s3_bucket": S3_BUCKET,
+                    "s3_key": s3_key,
+                    "filename": output_filename,
+                    "message": f"Successfully saved {len(records):,} category records as CSV to S3"
+                }
+            except Exception as s3_error:
+                logger.error(f"S3 save failed: {s3_error}")
+                return {
+                    "success": False,
+                    "error": f"Failed to save metadata CSV to S3: {str(s3_error)}",
+                    "dataset_id": dataset_id
+                }
+            
+        except Exception as e:
+            logger.error(f"Error in save_metadata_as_csv: {e}", exc_info=True)
+            return format_error_response(e, "save_metadata_as_csv", {
+                "dataset_id": dataset_id
+            })
+    
+    # ========================================
+    # ツール12: get_estat_table_url
+    # ========================================
+    
+    def get_estat_table_url(
+        self,
+        dataset_id: str
+    ) -> Dict[str, Any]:
+        """
+        統計表IDからe-Statホームページのリンクを生成
+        
+        Args:
+            dataset_id: 統計表ID（例: 0002112323）
+        
+        Returns:
+            e-Statホームページのリンク情報
+        """
+        start_time = datetime.now()
+        log_tool_call(logger, "get_estat_table_url", {
+            "dataset_id": dataset_id
+        })
+        
+        try:
+            # 統計表IDのバリデーション
+            if not dataset_id:
+                return {
+                    "success": False,
+                    "error": "dataset_id is required"
+                }
+            
+            # 統計表IDから数字以外を除去（念のため）
+            clean_id = ''.join(filter(str.isdigit, str(dataset_id)))
+            
+            if not clean_id:
+                return {
+                    "success": False,
+                    "error": f"Invalid dataset_id: {dataset_id}. Must contain numeric characters."
+                }
+            
+            # e-StatホームページのURLを生成
+            table_url = f"https://www.e-stat.go.jp/dbview?sid={clean_id}"
+            
+            processing_time = (datetime.now() - start_time).total_seconds()
+            log_tool_result(logger, "get_estat_table_url", True, processing_time)
+            
+            logger.info(f"Generated e-Stat URL for dataset {clean_id}")
+            
+            return {
+                "success": True,
+                "dataset_id": clean_id,
+                "original_dataset_id": dataset_id,
+                "table_url": table_url,
+                "processing_time_seconds": round(processing_time, 4),
+                "message": f"統計表のホームページURL: {table_url}"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in get_estat_table_url: {e}", exc_info=True)
+            return format_error_response(e, "get_estat_table_url", {
+                "dataset_id": dataset_id
+            })
+    
+    # ========================================
+    # ツール13: download_csv_from_s3
     # ========================================
     
     async def download_csv_from_s3(

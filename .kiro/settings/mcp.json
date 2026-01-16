@@ -94,8 +94,9 @@
         "load_to_iceberg",
         "analyze_with_athena",
         "save_dataset_as_csv",
-        "download_csv_from_s3",
-        "get_csv_download_url"
+        "save_metadata_as_csv",
+        "get_csv_download_url",
+        "get_estat_table_url"
       ]
     },
     "test-mcp": {

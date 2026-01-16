@@ -123,6 +123,21 @@ TOOLS = {
             "output_filename": {"type": "string", "required": False}
         }
     },
+    "save_metadata_as_csv": {
+        "handler": lambda **kwargs: estat_server.save_metadata_as_csv(**kwargs),
+        "description": "データセットのメタデータ情報（カテゴリー情報）をCSV形式でS3に保存",
+        "parameters": {
+            "dataset_id": {"type": "string", "required": True},
+            "output_filename": {"type": "string", "required": False}
+        }
+    },
+    "get_estat_table_url": {
+        "handler": lambda **kwargs: _sync_to_async(estat_server.get_estat_table_url, **kwargs),
+        "description": "統計表IDからe-Statホームページのリンクを生成（例: 0002112323 → https://www.e-stat.go.jp/dbview?sid=0002112323）",
+        "parameters": {
+            "dataset_id": {"type": "string", "required": True}
+        }
+    },
     "get_csv_download_url": {
         "handler": lambda **kwargs: estat_server.get_csv_download_url(**kwargs),
         "description": "S3 CSVファイルの署名付きダウンロードURLを生成（ブラウザまたはcurlでダウンロード可能）",
@@ -133,6 +148,12 @@ TOOLS = {
         }
     }
 }
+
+# 同期関数をasyncでラップするヘルパー
+async def _sync_to_async(func, **kwargs):
+    """同期関数をasync関数として実行"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: func(**kwargs))
 
 async def handle_mcp_endpoint(request):
     """統一されたMCPエンドポイント（GET/POST/DELETE対応）"""
