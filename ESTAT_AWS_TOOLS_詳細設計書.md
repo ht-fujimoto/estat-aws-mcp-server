@@ -8,11 +8,12 @@
 4. [ツール4: fetch_large_dataset_complete](#ツール4-fetch_large_dataset_complete)
 5. [ツール5: fetch_dataset_filtered](#ツール5-fetch_dataset_filtered)
 6. [ツール6: save_dataset_as_csv](#ツール6-save_dataset_as_csv)
-7. [ツール7: get_csv_download_url](#ツール7-get_csv_download_url)
-8. [ツール8: download_csv_from_s3](#ツール8-download_csv_from_s3)
-9. [ツール9: transform_to_parquet](#ツール9-transform_to_parquet)
-10. [ツール10: load_to_iceberg](#ツール10-load_to_iceberg)
-11. [ツール11: analyze_with_athena](#ツール11-analyze_with_athena)
+7. [ツール7: save_metadata_as_csv](#ツール7-save_metadata_as_csv)
+8. [ツール8: get_csv_download_url](#ツール8-get_csv_download_url)
+9. [ツール9: get_estat_table_url](#ツール9-get_estat_table_url)
+10. [ツール10: transform_to_parquet](#ツール10-transform_to_parquet)
+11. [ツール11: load_to_iceberg](#ツール11-load_to_iceberg)
+12. [ツール12: analyze_with_athena](#ツール12-analyze_with_athena)
 
 ---
 
@@ -978,9 +979,156 @@ except Exception as s3_error:
 - **フォールバック**: S3失敗時はローカル保存
 - **自動ファイル名**: タイムスタンプ付き
 
+### 修正履歴
+
+**2026年1月9日**: download_csv_from_s3の修正
+- `download_file`から`get_object`メソッドに変更
+- ディレクトリの自動作成機能を追加
+- 一時ファイル作成時のエラーを解消
+
 ---
 
-## ツール7: get_csv_download_url
+## ツール7: save_metadata_as_csv
+
+### 概要
+データセットのメタデータ情報（カテゴリー情報）をCSV形式でS3に保存する。
+
+### メソッドシグネチャ
+
+```python
+async def save_metadata_as_csv(
+    self,
+    dataset_id: str,
+    output_filename: Optional[str] = None
+) -> Dict[str, Any]
+```
+
+### パラメータ詳細
+
+| パラメータ | 型 | デフォルト | 必須 | 説明 |
+|-----------|-----|-----------|------|------|
+| dataset_id | str | - | ✓ | データセットID |
+| output_filename | str | None | - | 出力ファイル名 |
+
+### 処理フロー
+
+```
+Step 1: メタデータ取得
+  getMetaInfo API
+  ↓
+Step 2: カテゴリ情報抽出
+  CLASS_INF.CLASS_OBJ
+  ↓
+Step 3: CSV形式に変換
+  category_id, category_name, code, name
+  ↓
+Step 4: S3保存
+  s3://estat-data-lake/csv/{dataset_id}_metadata_{timestamp}.csv
+```
+
+### 実装詳細
+
+#### Step 1-2: メタデータ取得とカテゴリ抽出
+
+```python
+# メタデータ取得
+meta_params = {"appId": self.app_id, "statsDataId": dataset_id}
+meta_data = await self._call_estat_api("getMetaInfo", meta_params)
+
+# カテゴリ情報抽出
+class_objs = meta_data.get('GET_META_INFO', {}).get(
+    'METADATA_INF', {}
+).get('CLASS_INF', {}).get('CLASS_OBJ', [])
+
+if not isinstance(class_objs, list):
+    class_objs = [class_objs] if class_objs else []
+
+# CSV行を生成
+csv_rows = [['category_id', 'category_name', 'code', 'name']]
+
+for class_obj in class_objs:
+    cat_id = class_obj.get('@id', '')
+    cat_name = class_obj.get('@name', '')
+    classes = class_obj.get('CLASS', [])
+    
+    if not isinstance(classes, list):
+        classes = [classes] if classes else []
+    
+    for cls in classes:
+        code = cls.get('@code', '')
+        name = cls.get('@name', '')
+        csv_rows.append([cat_id, cat_name, code, name])
+```
+
+#### Step 3-4: CSV変換とS3保存
+
+```python
+import csv
+from io import StringIO
+
+# CSV生成
+csv_buffer = StringIO()
+csv_writer = csv.writer(csv_buffer)
+csv_writer.writerows(csv_rows)
+csv_content = csv_buffer.getvalue()
+
+# ファイル名決定
+if not output_filename:
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_filename = f"{dataset_id}_metadata_{timestamp}.csv"
+
+s3_key = f"csv/{output_filename}"
+
+# S3保存
+self.s3_client.put_object(
+    Bucket=S3_BUCKET,
+    Key=s3_key,
+    Body=csv_content.encode('utf-8-sig'),
+    ContentType='text/csv'
+)
+
+s3_location = f"s3://{S3_BUCKET}/{s3_key}"
+```
+
+### レスポンス例
+
+```json
+{
+  "success": true,
+  "dataset_id": "0003410379",
+  "categories_count": 4,
+  "total_codes": 2847,
+  "s3_location": "s3://estat-data-lake/csv/0003410379_metadata_20260116_150000.csv",
+  "s3_bucket": "estat-data-lake",
+  "s3_key": "csv/0003410379_metadata_20260116_150000.csv",
+  "filename": "0003410379_metadata_20260116_150000.csv",
+  "message": "Successfully saved metadata (4 categories, 2847 codes) as CSV to S3"
+}
+```
+
+### CSV出力例
+
+```csv
+category_id,category_name,code,name
+tab,表章項目,01,事業所数
+tab,表章項目,02,従業者数
+cat01,産業分類,A,農業、林業
+cat01,産業分類,B,漁業
+area,地域,00000,全国
+area,地域,01000,北海道
+time,時間軸,2020,2020年
+time,時間軸,2021,2021年
+```
+
+### 用途
+
+1. **フィルタ条件の確認**: `fetch_dataset_filtered`で使用可能なコードを確認
+2. **データ理解**: データセットの構造を把握
+3. **ドキュメント作成**: データセットの説明資料作成
+
+---
+
+## ツール8: get_csv_download_url
 
 ### 概要
 S3に保存されたCSVファイルの署名付きダウンロードURLを生成する。
@@ -1293,7 +1441,149 @@ if return_content:
 
 ---
 
-## ツール9: transform_to_parquet
+## ツール9: get_estat_table_url
+
+### 概要
+統計表IDからe-Stat公式ホームページの統計表ページURLを生成する。
+
+### メソッドシグネチャ
+
+```python
+def get_estat_table_url(
+    self,
+    dataset_id: str
+) -> Dict[str, Any]
+```
+
+### パラメータ詳細
+
+| パラメータ | 型 | デフォルト | 必須 | 説明 |
+|-----------|-----|-----------|------|------|
+| dataset_id | str | - | ✓ | 統計表ID（例: 0002112323） |
+
+### 処理フロー
+
+```
+Step 1: 統計表IDのバリデーション
+  ├─ 空チェック
+  └─ 数字抽出
+  ↓
+Step 2: URL生成
+  https://www.e-stat.go.jp/dbview?sid={dataset_id}
+  ↓
+Step 3: レスポンス返却
+```
+
+### 実装詳細
+
+#### Step 1: バリデーション
+
+```python
+# 統計表IDのバリデーション
+if not dataset_id:
+    return {
+        "success": False,
+        "error": "dataset_id is required"
+    }
+
+# 統計表IDから数字以外を除去（念のため）
+clean_id = ''.join(filter(str.isdigit, str(dataset_id)))
+
+if not clean_id:
+    return {
+        "success": False,
+        "error": f"Invalid dataset_id: {dataset_id}. Must contain numeric characters."
+    }
+```
+
+#### Step 2: URL生成
+
+```python
+# e-StatホームページのURLを生成
+table_url = f"https://www.e-stat.go.jp/dbview?sid={clean_id}"
+
+logger.info(f"Generated e-Stat URL for dataset {clean_id}")
+```
+
+### レスポンス例
+
+**成功時**:
+```json
+{
+  "success": true,
+  "dataset_id": "0002112323",
+  "original_dataset_id": "0002112323",
+  "table_url": "https://www.e-stat.go.jp/dbview?sid=0002112323",
+  "processing_time_seconds": 0.0001,
+  "message": "統計表のホームページURL: https://www.e-stat.go.jp/dbview?sid=0002112323"
+}
+```
+
+**エラー時**:
+```json
+{
+  "success": false,
+  "error": "dataset_id is required"
+}
+```
+
+### 使用例
+
+**基本的な使用**:
+```python
+# 統計表IDからURL生成
+result = await get_estat_table_url(dataset_id="0003458339")
+
+# ブラウザで開く
+print(result["table_url"])
+# → https://www.e-stat.go.jp/dbview?sid=0003458339
+```
+
+**検索結果と組み合わせ**:
+```python
+# 1. データセット検索
+search_result = await search_estat_data(query="北海道 人口")
+
+# 2. 最上位のデータセットIDを取得
+dataset_id = search_result["results"][0]["dataset_id"]
+
+# 3. e-StatホームページのURLを生成
+url_result = await get_estat_table_url(dataset_id=dataset_id)
+
+# 4. URLを表示
+print(f"詳細はこちら: {url_result['table_url']}")
+```
+
+### 特徴
+
+1. **高速**: API呼び出し不要、即座にURL生成
+2. **シンプル**: 統計表IDのみで動作
+3. **公式リンク**: e-Stat公式サイトへの直接リンク
+4. **バリデーション**: 不正なIDを検出
+
+### 用途
+
+1. **データ確認**: e-Stat公式サイトで統計表の詳細を確認
+2. **レポート作成**: 統計表へのリンクを含むレポート作成
+3. **データソース明示**: データの出典を明確化
+4. **手動ダウンロード**: e-Statから直接ダウンロードしたい場合
+
+### e-Stat統計表ページの情報
+
+生成されたURLで表示される情報:
+- 統計表の正式名称
+- 調査年月日
+- 公開日
+- 提供統計名
+- 提供分類
+- 表章項目
+- 分類事項
+- データのプレビュー
+- Excel/CSV形式でのダウンロードオプション
+
+---
+
+## ツール10: transform_to_parquet
 
 ### 概要
 JSONデータをParquet形式に変換してS3に保存する。データサイズを50-80%削減。
@@ -1484,7 +1774,7 @@ import pyarrow.parquet as pq
 
 ---
 
-## ツール10: load_to_iceberg
+## ツール11: load_to_iceberg
 
 ### 概要
 ParquetデータをAthena Icebergテーブルに投入する。
@@ -1605,8 +1895,14 @@ INSERT INTO {database}.{table_name}
 SELECT * FROM {database}.{external_table}
 """
 
+# Athenaワークグループを使用してクエリ実行
 await self._execute_athena_query(insert_query, database=database, output_location=output_location)
 ```
+
+**重要な変更点（2026年1月14日）**:
+- `ResultConfiguration`の代わりに`WorkGroup='estat-mcp-workgroup'`を明示的に指定
+- Athenaワークグループで出力場所を一元管理
+- `s3-tables-temp-data-*`バケットへの不要な参照を削除
 
 #### Step 5: レコード数確認
 
@@ -1629,12 +1925,31 @@ async def _execute_athena_query(
     output_location: str
 ) -> tuple:
     
-    # クエリ実行
-    response = self.athena_client.start_query_execution(
-        QueryString=query,
-        QueryExecutionContext={'Database': database},
-        WorkGroup='estat-mcp-workgroup'
-    )
+    # S3出力ディレクトリの確認
+    if not self.s3_client:
+        return (False, "S3 client not available")
+    
+    try:
+        self.s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key='athena-results/.keep',
+            Body=b''
+        )
+        logger.info(f"Athena output location ready: {output_location}")
+    except Exception as e:
+        logger.error(f"Failed to create athena-results directory: {e}")
+        return (False, f"Failed to setup Athena output location: {str(e)}")
+    
+    # クエリ実行（ワークグループを明示的に指定）
+    try:
+        response = self.athena_client.start_query_execution(
+            QueryString=query,
+            QueryExecutionContext={'Database': database},
+            WorkGroup='estat-mcp-workgroup'
+        )
+    except Exception as e:
+        logger.error(f"Failed to start query execution: {e}")
+        return (False, f"Failed to start query: {str(e)}")
     
     query_execution_id = response['QueryExecutionId']
     
@@ -1725,7 +2040,7 @@ async def _execute_athena_query(
 
 ---
 
-## ツール11: analyze_with_athena
+## ツール12: analyze_with_athena
 
 ### 概要
 Athenaで統計分析を実行する。基本統計、高度分析、カスタムクエリに対応。
@@ -2110,13 +2425,14 @@ def _extract_value(self, field: Any) -> str:
 - fetch_large_dataset_complete
 - fetch_dataset_filtered
 
-**変換系**:
+**変換・保存系**:
 - save_dataset_as_csv
+- save_metadata_as_csv
 - transform_to_parquet
 
-**ダウンロード系**:
+**ダウンロード・URL生成系**:
 - get_csv_download_url
-- download_csv_from_s3
+- get_estat_table_url
 
 **分析系**:
 - load_to_iceberg
@@ -2124,18 +2440,92 @@ def _extract_value(self, field: Any) -> str:
 
 ### 典型的なワークフロー
 
-**パターン1: CSV取得**
+**パターン1: CSV取得とダウンロード**
 ```
-search_estat_data → fetch_dataset_auto → save_dataset_as_csv → get_csv_download_url
+search_estat_data 
+  → fetch_dataset_auto 
+  → save_dataset_as_csv 
+  → get_csv_download_url
 ```
 
-**パターン2: 大規模データ分析**
+**パターン2: メタデータ確認とフィルタ取得**
 ```
-search_estat_data → fetch_dataset_filtered → transform_to_parquet → load_to_iceberg → analyze_with_athena
+search_estat_data 
+  → save_metadata_as_csv 
+  → get_csv_download_url (メタデータCSV)
+  → fetch_dataset_filtered (確認したコードでフィルタ)
+  → save_dataset_as_csv
+```
+
+**パターン3: 大規模データ分析**
+```
+search_estat_data 
+  → fetch_dataset_filtered 
+  → transform_to_parquet 
+  → load_to_iceberg 
+  → analyze_with_athena
+```
+
+**パターン4: データソース確認**
+```
+search_estat_data 
+  → get_estat_table_url (e-Stat公式サイトで詳細確認)
+  → fetch_dataset_auto
 ```
 
 ---
 
+## 修正履歴
+
+### v2.3.0 (2026年1月16日)
+
+**ツール構成の修正**:
+1. **get_estat_table_url追加**
+   - 統計表IDからe-Stat公式ホームページURLを生成
+   - API呼び出し不要の高速処理
+   - データソース確認に便利
+
+2. **save_metadata_as_csv追加**
+   - データセットのメタデータ（カテゴリ情報）をCSV保存
+   - フィルタ条件の確認に使用
+   - データ構造の理解を支援
+
+3. **ツール番号の再編成**
+   - 全12ツールに整理
+   - 機能別に分類を明確化
+
+### v2.2.0 (2026年1月16日)
+
+**Athenaツールの修正**:
+1. **Athenaワークグループの導入**
+   - `estat-mcp-workgroup`を作成し、出力先を`s3://estat-data-lake/athena-results/`に統一
+   - `ResultConfiguration`の代わりに`WorkGroup`パラメータを使用
+   - `s3-tables-temp-data-*`バケットへの不要な参照を削除
+
+2. **エラーハンドリングの強化**
+   - S3クライアントの存在チェックを追加
+   - Athena出力ディレクトリの事前作成
+   - 詳細なエラーメッセージの提供
+
+**download_csv_from_s3の修正**:
+1. **ダウンロード方法の変更**
+   - `download_file`から`get_object`メソッドに変更
+   - 一時ファイル作成時のエラーを解消
+
+2. **ディレクトリ管理の改善**
+   - 保存先ディレクトリの自動作成
+   - サブディレクトリへの保存に対応
+
+### v2.1.0 (2026年1月15日)
+
+**初版リリース**:
+- 全11ツールの詳細設計を完成
+- MCP streamable-httpプロトコル対応
+- AWS ECS Fargateデプロイメント対応
+
+---
+
 **作成日**: 2026年1月15日  
-**バージョン**: v2.1.0  
+**最終更新**: 2026年1月16日  
+**バージョン**: v2.3.0  
 **作成者**: Kiro AI Assistant
