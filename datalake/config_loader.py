@@ -30,6 +30,32 @@ class ConfigLoader:
         self.config_path = Path(config_path)
         self.config = self._load_config()
     
+    @staticmethod
+    def load_config(config_path: str) -> Dict[str, Any]:
+        """
+        Load configuration from YAML file (static method)
+        
+        Args:
+            config_path: Path to the configuration file
+        
+        Returns:
+            Configuration dictionary
+        """
+        config_path = Path(config_path)
+        
+        if not config_path.exists():
+            logger.error(f"Config file not found: {config_path}")
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                logger.info(f"Loaded config from {config_path}")
+                return config
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            raise
+    
     def _load_config(self) -> Dict[str, Any]:
         """
         Load configuration from YAML file
