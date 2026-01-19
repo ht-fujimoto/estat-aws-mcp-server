@@ -114,7 +114,7 @@ class TestSchemaRetrieval:
         schema = mapper.get_schema("population")
         assert "columns" in schema
         assert "partition_by" in schema
-        assert len(schema["columns"]) == 8
+        assert len(schema["columns"]) == 9  # dataset_id追加により8→9
         assert schema["partition_by"] == ["year", "region_code"]
     
     def test_get_economy_schema(self):
@@ -123,7 +123,7 @@ class TestSchemaRetrieval:
         
         schema = mapper.get_schema("economy")
         assert "columns" in schema
-        assert len(schema["columns"]) == 8
+        assert len(schema["columns"]) == 9  # dataset_id追加により8→9
         assert schema["partition_by"] == ["year", "region_code"]
     
     def test_get_labor_schema(self):
@@ -132,7 +132,7 @@ class TestSchemaRetrieval:
         
         schema = mapper.get_schema("labor")
         assert "columns" in schema
-        assert len(schema["columns"]) == 10
+        assert len(schema["columns"]) == 11  # dataset_id追加により10→11
         assert schema["partition_by"] == ["year", "region_code"]
     
     def test_get_generic_schema(self):
@@ -141,7 +141,7 @@ class TestSchemaRetrieval:
         
         schema = mapper.get_schema("generic")
         assert "columns" in schema
-        assert len(schema["columns"]) == 7
+        assert len(schema["columns"]) == 8  # dataset_id追加により7→8
         assert schema["partition_by"] == ["year"]
     
     def test_get_unknown_domain_schema(self):

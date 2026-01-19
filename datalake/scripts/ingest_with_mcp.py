@@ -91,14 +91,18 @@ def fetch_dataset_data(dataset_id: str):
     return result.get("data", [])
 
 
-def transform_to_iceberg_format(data: list, domain: str, schema_mapper: SchemaMapper):
+def transform_to_iceberg_format(data: list, domain: str, dataset_id: str, schema_mapper: SchemaMapper):
     """データをIceberg形式に変換"""
     print(f"  🔄 データを変換中...")
     
     transformed_records = []
     for record in data:
         try:
-            mapped_record = schema_mapper.map_estat_to_iceberg(record, domain)
+            mapped_record = schema_mapper.map_estat_to_iceberg(
+                record, 
+                domain,
+                dataset_id=dataset_id
+            )
             transformed_records.append(mapped_record)
         except Exception as e:
             print(f"    ⚠️  レコード変換エラー: {e}")
@@ -180,7 +184,7 @@ def ingest_single_dataset(dataset, datalake_config, components):
         print(f"  📊 取得レコード数: {len(data)}")
         
         # 3. データを変換
-        transformed_data = transform_to_iceberg_format(data, domain, schema_mapper)
+        transformed_data = transform_to_iceberg_format(data, domain, dataset_id, schema_mapper)
         if not transformed_data:
             print(f"❌ データ変換に失敗しました")
             return False

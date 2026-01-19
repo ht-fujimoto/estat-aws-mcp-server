@@ -13,6 +13,7 @@ import re
 DOMAIN_SCHEMAS = {
     "population": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -27,6 +28,7 @@ DOMAIN_SCHEMAS = {
     
     "economy": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "quarter", "type": "INT", "description": "四半期"},
@@ -41,6 +43,7 @@ DOMAIN_SCHEMAS = {
     
     "labor": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "month", "type": "INT", "description": "月"},
@@ -57,6 +60,7 @@ DOMAIN_SCHEMAS = {
     
     "education": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -71,6 +75,7 @@ DOMAIN_SCHEMAS = {
     
     "health": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -86,6 +91,7 @@ DOMAIN_SCHEMAS = {
     
     "agriculture": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -101,6 +107,7 @@ DOMAIN_SCHEMAS = {
     
     "construction": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "month", "type": "INT", "description": "月"},
@@ -117,6 +124,7 @@ DOMAIN_SCHEMAS = {
     
     "transport": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "month", "type": "INT", "description": "月"},
@@ -132,6 +140,7 @@ DOMAIN_SCHEMAS = {
     
     "trade": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "quarter", "type": "INT", "description": "四半期"},
@@ -148,6 +157,7 @@ DOMAIN_SCHEMAS = {
     
     "social_welfare": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -163,6 +173,7 @@ DOMAIN_SCHEMAS = {
     
     "generic": {
         "columns": [
+            {"name": "dataset_id", "type": "STRING", "description": "データセットID"},
             {"name": "stats_data_id", "type": "STRING", "description": "統計表ID"},
             {"name": "year", "type": "INT", "description": "年度"},
             {"name": "region_code", "type": "STRING", "description": "地域コード"},
@@ -264,6 +275,7 @@ class SchemaMapper:
     
     def map_estat_to_iceberg(self, estat_record: Dict[str, Any], 
                             domain: str,
+                            dataset_id: Optional[str] = None,
                             category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         E-statレコードをIcebergスキーマにマッピング
@@ -271,38 +283,41 @@ class SchemaMapper:
         Args:
             estat_record: E-statレコード
             domain: ドメイン名
+            dataset_id: データセットID（オプション）
             category_labels: カテゴリコードとラベルのマッピング
         
         Returns:
             Icebergレコード
         """
         if domain == "population":
-            return self._map_population(estat_record, category_labels)
+            return self._map_population(estat_record, dataset_id, category_labels)
         elif domain == "economy":
-            return self._map_economy(estat_record, category_labels)
+            return self._map_economy(estat_record, dataset_id, category_labels)
         elif domain == "labor":
-            return self._map_labor(estat_record, category_labels)
+            return self._map_labor(estat_record, dataset_id, category_labels)
         elif domain == "education":
-            return self._map_education(estat_record, category_labels)
+            return self._map_education(estat_record, dataset_id, category_labels)
         elif domain == "health":
-            return self._map_health(estat_record, category_labels)
+            return self._map_health(estat_record, dataset_id, category_labels)
         elif domain == "agriculture":
-            return self._map_agriculture(estat_record, category_labels)
+            return self._map_agriculture(estat_record, dataset_id, category_labels)
         elif domain == "construction":
-            return self._map_construction(estat_record, category_labels)
+            return self._map_construction(estat_record, dataset_id, category_labels)
         elif domain == "transport":
-            return self._map_transport(estat_record, category_labels)
+            return self._map_transport(estat_record, dataset_id, category_labels)
         elif domain == "trade":
-            return self._map_trade(estat_record, category_labels)
+            return self._map_trade(estat_record, dataset_id, category_labels)
         elif domain == "social_welfare":
-            return self._map_social_welfare(estat_record, category_labels)
+            return self._map_social_welfare(estat_record, dataset_id, category_labels)
         else:
-            return self._map_generic(estat_record, category_labels)
+            return self._map_generic(estat_record, dataset_id, category_labels)
     
-    def _map_population(self, record: Dict[str, Any], 
+    def _map_population(self, record: Dict[str, Any],
+                       dataset_id: Optional[str] = None,
                        category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """人口ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
@@ -313,13 +328,15 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_economy(self, record: Dict[str, Any], 
+    def _map_economy(self, record: Dict[str, Any],
+                    dataset_id: Optional[str] = None,
                     category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """経済ドメインのマッピング"""
         time_str = record.get("@time", "")
         year, quarter = self._extract_year_quarter(time_str)
         
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": year,
             "quarter": quarter,
@@ -330,10 +347,12 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_generic(self, record: Dict[str, Any], 
+    def _map_generic(self, record: Dict[str, Any],
+                    dataset_id: Optional[str] = None,
                     category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """汎用ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
@@ -343,7 +362,8 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_labor(self, record: Dict[str, Any], 
+    def _map_labor(self, record: Dict[str, Any],
+                  dataset_id: Optional[str] = None,
                   category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """労働ドメインのマッピング"""
         time_str = record.get("@time", "")
@@ -351,6 +371,7 @@ class SchemaMapper:
         month = self._extract_month(time_str)
         
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": year,
             "month": month,
@@ -363,10 +384,12 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_education(self, record: Dict[str, Any], 
+    def _map_education(self, record: Dict[str, Any],
+                      dataset_id: Optional[str] = None,
                       category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """教育ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
@@ -377,10 +400,12 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_health(self, record: Dict[str, Any], 
+    def _map_health(self, record: Dict[str, Any],
+                   dataset_id: Optional[str] = None,
                    category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """保健・医療ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
@@ -392,10 +417,12 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_agriculture(self, record: Dict[str, Any], 
+    def _map_agriculture(self, record: Dict[str, Any],
+                        dataset_id: Optional[str] = None,
                         category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """農林水産ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
@@ -407,7 +434,8 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_construction(self, record: Dict[str, Any], 
+    def _map_construction(self, record: Dict[str, Any],
+                         dataset_id: Optional[str] = None,
                          category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """建設・住宅ドメインのマッピング"""
         time_str = record.get("@time", "")
@@ -415,6 +443,7 @@ class SchemaMapper:
         month = self._extract_month(time_str)
         
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": year,
             "month": month,
@@ -427,7 +456,8 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_transport(self, record: Dict[str, Any], 
+    def _map_transport(self, record: Dict[str, Any],
+                      dataset_id: Optional[str] = None,
                       category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """運輸・通信ドメインのマッピング"""
         time_str = record.get("@time", "")
@@ -435,6 +465,7 @@ class SchemaMapper:
         month = self._extract_month(time_str)
         
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": year,
             "month": month,
@@ -446,13 +477,15 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_trade(self, record: Dict[str, Any], 
+    def _map_trade(self, record: Dict[str, Any],
+                  dataset_id: Optional[str] = None,
                   category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """商業・サービスドメインのマッピング"""
         time_str = record.get("@time", "")
         year, quarter = self._extract_year_quarter(time_str)
         
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": year,
             "quarter": quarter,
@@ -465,10 +498,12 @@ class SchemaMapper:
             "updated_at": datetime.now()
         }
     
-    def _map_social_welfare(self, record: Dict[str, Any], 
+    def _map_social_welfare(self, record: Dict[str, Any],
+                           dataset_id: Optional[str] = None,
                            category_labels: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """社会保障ドメインのマッピング"""
         return {
+            "dataset_id": dataset_id or record.get("@id", ""),
             "stats_data_id": record.get("@id", ""),
             "year": self._extract_year(record.get("@time", "")),
             "region_code": record.get("@area", ""),
