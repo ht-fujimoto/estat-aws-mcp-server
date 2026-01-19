@@ -239,7 +239,8 @@ datalake/
 │   ├── test_schema_mapper.py              # 単体テスト (50個)
 │   ├── test_data_ingestion_orchestrator.py # 単体テスト (15個)
 │   ├── test_data_quality_validator.py     # 単体テスト (26個)
-│   └── test_error_handler.py              # 単体テスト (32個)
+│   ├── test_error_handler.py              # 単体テスト (32個)
+│   └── test_athena_query_interface.py     # 単体テスト (18個)
 └── README.md                            # このファイル
 ```
 
@@ -307,7 +308,8 @@ python3 -m pytest datalake/tests/test_iceberg_table_manager.py -v
 - DataIngestionOrchestrator: 15個のテスト ✅
 - DataQualityValidator: 26個のテスト ✅
 - ErrorHandler: 32個のテスト ✅
-- **合計: 184個のテスト全て成功**
+- AthenaQueryInterface: 18個のテスト ✅
+- **合計: 202個のテスト全て成功**
 
 ## 使用例の実行
 
@@ -436,5 +438,6 @@ all_data = await orchestrator.fetch_complete_dataset_parallel(
 - ✅ タスク8: データ品質検証
 - ✅ タスク9: チェックポイント - データ品質の確認
 - ✅ タスク10: エラーハンドリング
+- ✅ タスク14: Athenaクエリインターフェース
 
-合計テスト数: 184個（全て成功）
+合計テスト数: 202個（全て成功）
