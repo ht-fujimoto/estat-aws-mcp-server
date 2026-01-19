@@ -1,0 +1,293 @@
+# E-stat Iceberg データレイク構築モジュール
+
+このモジュールは、E-stat APIから取得したデータをApache Iceberg形式でAWS S3に格納するデータレイクを構築するための機能を提供します。
+
+## 概要
+
+E-stat（政府統計の総合窓口）から取得した統計データを、AWS S3上にApache Iceberg形式で格納し、AWS Athenaで効率的にクエリできるデータレイクを構築します。
+
+## 実装済み機能
+
+### 1. データセット選択マネージャー (DatasetSelectionManager)
+
+データセットの選択、優先度管理、取り込みステータスの追跡を行います。
+
+### 2. メタデータ管理システム (MetadataManager)
+
+データセットのメタデータ、データリネージ、データカタログ操作を管理します。
+
+### 3. Icebergテーブル管理 (IcebergTableManager)
+
+Icebergテーブルの作成、スキーマ定義、テーブル操作を管理します。
+
+### 4. スキーママッピングエンジン (SchemaMapper)
+
+E-statデータ構造の解析、Icebergスキーマへのマッピング、データ型推論と変換を行います。
+
+#### DatasetSelectionManager の主な機能
+
+- **設定ファイル管理**: YAMLファイルでデータセット情報を管理
+- **データセット追加・削除**: `add_dataset()`, `remove_dataset()`
+- **優先度管理**: 優先度に基づいた次のデータセット取得 `get_next_dataset()`
+- **ステータス管理**: 取り込みステータスの更新と履歴記録 `update_status()`
+
+#### MetadataManager の主な機能
+
+- **データセット登録**: `register_dataset()` - dataset_inventoryテーブルへの登録
+- **ステータス更新**: `update_status()` - 取り込みステータスの更新
+- **データセット情報取得**: `get_dataset_info()`, `list_datasets()`
+- **テーブルマッピング**: `get_table_mapping()` - データセットIDとテーブル名の対応
+- **メタデータ保存**: `save_metadata()`, `get_metadata()` - E-statメタデータの保存と取得
+
+#### IcebergTableManager の主な機能
+
+- **dataset_inventoryテーブル作成**: `create_dataset_inventory_table()`
+- **ドメイン別テーブル作成**: `create_domain_table()` - population, economy, generic
+- **スキーマ取得**: `get_table_schema()` - テーブルスキーマの取得
+
+#### SchemaMapper の主な機能
+
+- **ドメイン推論**: `infer_domain()` - メタデータからデータドメインを自動判定
+  - 対応ドメイン: population（人口）, economy（経済）, labor（労働）, education（教育）, health（保健・医療）, agriculture（農林水産）, construction（建設・住宅）, transport（運輸・通信）, trade（商業・サービス）, social_welfare（社会保障）, generic（汎用）
+- **スキーマ取得**: `get_schema()` - ドメイン別の標準スキーマを提供
+- **レコードマッピング**: `map_estat_to_iceberg()` - E-statレコードをIcebergスキーマに変換
+- **データ型推論**: `infer_data_type()` - 値から適切なデータ型を推論
+- **列名正規化**: `normalize_column_name()` - 列名を標準形式に正規化
+- **時間解析**: `_extract_year()`, `_extract_year_quarter()`, `_extract_month()` - 年・四半期・月などの時間情報を抽出
+- **値解析**: `_parse_value()` - 文字列を数値に変換
+
+#### 使用例
+
+```python
+from datalake.dataset_selection_manager import DatasetSelectionManager
+from datalake.metadata_manager import MetadataManager
+from datalake.iceberg_table_manager import IcebergTableManager
+
+# === データセット選択マネージャー ===
+manager = DatasetSelectionManager("config/dataset_config.yaml")
+
+# データセットを追加
+manager.add_dataset(
+    dataset_id="0003458339",
+    priority=10,
+    domain="population",
+    name="人口推計"
+)
+
+# 次に取り込むデータセットを取得（優先度順）
+next_dataset = manager.get_next_dataset()
+print(f"次のデータセット: {next_dataset['name']}")
+
+# ステータスを更新
+manager.update_status(next_dataset['id'], "processing")
+# ... データ取り込み処理 ...
+manager.update_status(next_dataset['id'], "completed")
+
+# === Icebergテーブル管理 ===
+table_manager = IcebergTableManager(athena_client, "estat_iceberg_db", "estat-iceberg-datalake")
+
+# dataset_inventoryテーブルを作成
+result = table_manager.create_dataset_inventory_table()
+print(f"テーブル作成: {result['table_name']}")
+
+# ドメイン別テーブルを作成
+schema = {
+    "columns": [
+        {"name": "year", "type": "INT", "description": "年度"},
+        {"name": "region_code", "type": "STRING", "description": "地域コード"},
+        {"name": "value", "type": "DOUBLE", "description": "値"}
+    ],
+    "partition_by": ["year", "region_code"]
+}
+result = table_manager.create_domain_table("population", schema)
+
+# === メタデータ管理 ===
+metadata_manager = MetadataManager(athena_client, "estat_iceberg_db")
+
+# データセットを登録
+dataset_info = {
+    "dataset_id": "0003458339",
+    "dataset_name": "人口推計",
+    "domain": "population",
+    "status": "completed",
+    "timestamp": "2024-01-19T10:00:00",
+    "table_name": "population_data",
+    "total_records": 150000
+}
+metadata_manager.register_dataset(dataset_info)
+
+# E-statメタデータを保存
+estat_metadata = {
+    "title": "人口推計",
+    "organization": "総務省統計局",
+    "categories": {...}
+}
+metadata_manager.save_metadata("0003458339", estat_metadata)
+
+# データセット一覧を取得
+datasets = metadata_manager.list_datasets(status="completed", domain="population")
+
+# 統計情報を取得
+stats = manager.get_statistics()
+print(f"総データセット数: {stats['total']}")
+print(f"ステータス別: {stats['by_status']}")
+
+# === スキーママッピング ===
+from datalake.schema_mapper import SchemaMapper
+
+mapper = SchemaMapper()
+
+# ドメインを推論
+metadata = {"title": "人口推計（令和2年国勢調査基準）"}
+domain = mapper.infer_domain(metadata)  # "population"
+
+# スキーマを取得
+schema = mapper.get_schema(domain)
+print(f"列数: {len(schema['columns'])}")
+
+# E-statレコードをマッピング
+estat_record = {
+    "@id": "0003458339",
+    "@time": "2020",
+    "@area": "01000",
+    "@cat01": "total_population",
+    "$": "5,250,000",
+    "@unit": "人"
+}
+mapped_record = mapper.map_estat_to_iceberg(estat_record, domain)
+print(f"マッピング後: {mapped_record}")
+```
+
+## ディレクトリ構造
+
+```
+datalake/
+├── __init__.py                          # モジュール初期化
+├── dataset_selection_manager.py         # データセット選択マネージャー
+├── metadata_manager.py                  # メタデータ管理システム
+├── iceberg_table_manager.py             # Icebergテーブル管理
+├── schema_mapper.py                     # スキーママッピングエンジン
+├── config/
+│   ├── datalake_config.yaml            # データレイク設定ファイル
+│   └── dataset_config.yaml             # データセット設定ファイル
+├── examples/
+│   ├── dataset_manager_example.py      # データセット選択の使用例
+│   ├── metadata_manager_example.py     # メタデータ管理の使用例
+│   ├── schema_mapper_example.py        # スキーママッピングの使用例
+│   └── config_usage_example.py         # 設定ファイルの使用例
+├── tests/
+│   ├── __init__.py
+│   ├── test_dataset_selection_manager.py  # 単体テスト (24個)
+│   ├── test_metadata_manager.py           # 単体テスト (23個)
+│   ├── test_iceberg_table_manager.py      # 単体テスト (11個)
+│   └── test_schema_mapper.py              # 単体テスト (37個)
+└── README.md                            # このファイル
+```
+
+## 設定ファイル形式
+
+`config/dataset_config.yaml`:
+
+```yaml
+datasets:
+  - id: "0003458339"
+    name: "人口推計（令和2年国勢調査基準）"
+    domain: "population"
+    priority: 10
+    status: "pending"
+    added_at: "2024-01-19T00:00:00"
+  
+  - id: "0003109687"
+    name: "家計調査"
+    domain: "economy"
+    priority: 9
+    status: "pending"
+    added_at: "2024-01-19T00:00:00"
+```
+
+### フィールド説明
+
+- `id`: E-statデータセットID（必須）
+- `name`: データセット名（必須）
+- `domain`: データドメイン（population, economy, generic）
+- `priority`: 優先度（1-10、10が最高）
+- `status`: ステータス（pending, processing, completed, failed）
+- `added_at`: 追加日時（ISO 8601形式）
+
+## ステータス遷移
+
+```
+pending → processing → completed
+                    ↘ failed
+```
+
+- **pending**: 取り込み待ち
+- **processing**: 取り込み中
+- **completed**: 取り込み完了
+- **failed**: 取り込み失敗
+
+## テスト
+
+単体テストを実行：
+
+```bash
+# 全テスト実行
+python3 -m pytest datalake/tests/ -v
+
+# 特定のテストファイルのみ
+python3 -m pytest datalake/tests/test_dataset_selection_manager.py -v
+python3 -m pytest datalake/tests/test_metadata_manager.py -v
+python3 -m pytest datalake/tests/test_iceberg_table_manager.py -v
+```
+
+テスト結果：
+- DatasetSelectionManager: 24個のテスト ✅
+- MetadataManager: 23個のテスト ✅
+- IcebergTableManager: 11個のテスト ✅
+- SchemaMapper: 50個のテスト ✅
+- **合計: 108個のテスト全て成功**
+
+## 使用例の実行
+
+```bash
+# データセット選択マネージャーの例
+PYTHONPATH=. python3 datalake/examples/dataset_manager_example.py
+
+# メタデータ管理の例
+PYTHONPATH=. python3 datalake/examples/metadata_manager_example.py
+
+# スキーママッピングの例
+PYTHONPATH=. python3 datalake/examples/schema_mapper_example.py
+
+# 設定ファイルの使用例
+PYTHONPATH=. python3 datalake/examples/config_usage_example.py
+```
+
+## 要件
+
+- Python 3.9+
+- PyYAML
+- pytest (テスト実行時)
+
+## 今後の実装予定
+
+### フェーズ2: データ取り込みパイプライン
+- DataIngestionOrchestrator
+- ErrorHandler
+- バッチ取り込み機能
+
+### フェーズ3: スキーママッピング
+- SchemaMapper
+- ドメイン別スキーマ定義
+- データ型推論
+
+### フェーズ4: Icebergテーブル管理
+- テーブル作成ロジック
+- パーティション戦略
+- メタデータ管理
+
+詳細は `.kiro/specs/estat-datalake-construction/` を参照してください。
+
+## ライセンス
+
+このプロジェクトのライセンスについては、プロジェクトルートのLICENSEファイルを参照してください。
