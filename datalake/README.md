@@ -32,6 +32,10 @@ E-stat APIからデータを取得し、Icebergテーブルに投入するプロ
 
 データの品質をチェックし、問題を検出・報告します。
 
+### 7. エラーハンドリング (ErrorHandler)
+
+データ取り込み中のエラーを処理し、適切なリトライ戦略を適用します。
+
 #### DatasetSelectionManager の主な機能
 
 - **設定ファイル管理**: YAMLファイルでデータセット情報を管理
@@ -72,12 +76,27 @@ E-stat APIからデータを取得し、Icebergテーブルに投入するプロ
 - **重複レコード検出**: `detect_duplicates()` - 次元の組み合わせによる重複検出
 - **不正レコードの隔離**: `quarantine_invalid_records()` - 有効なレコードの処理継続
 
+#### ErrorHandler の主な機能
+
+- **エラー分類**: `handle_ingestion_error()` - エラータイプの自動分類
+  - API_ERROR: API関連エラー
+  - NETWORK_ERROR: ネットワークエラー
+  - TIMEOUT_ERROR: タイムアウトエラー
+  - DATA_ERROR: データ形式エラー
+  - VALIDATION_ERROR: 検証エラー
+  - STORAGE_ERROR: ストレージエラー
+  - UNKNOWN_ERROR: 不明なエラー
+- **リトライ可能性チェック**: リトライ可能なエラーを自動判定
+- **指数バックオフ**: `retry_with_backoff()` - 指数バックオフでリトライ実行
+- **エラー履歴管理**: `get_error_summary()` - エラー履歴の記録と集計
+
 #### 使用例
 
 ```python
 from datalake.dataset_selection_manager import DatasetSelectionManager
 from datalake.metadata_manager import MetadataManager
 from datalake.iceberg_table_manager import IcebergTableManager
+from datalake.error_handler import ErrorHandler
 
 # === データセット選択マネージャー ===
 manager = DatasetSelectionManager("config/dataset_config.yaml")
@@ -172,6 +191,24 @@ estat_record = {
 }
 mapped_record = mapper.map_estat_to_iceberg(estat_record, domain)
 print(f"マッピング後: {mapped_record}")
+
+# === エラーハンドリング ===
+error_handler = ErrorHandler(max_retries=3, base_delay=1.0, max_delay=60.0)
+
+# エラーハンドリング付きでデータ取得
+def fetch_data():
+    # データ取得処理
+    return data
+
+try:
+    result = error_handler.retry_with_backoff(
+        fetch_data,
+        context={"dataset_id": "0003458339", "operation": "fetch"}
+    )
+except Exception as e:
+    # 全てのリトライが失敗した場合
+    error_summary = error_handler.get_error_summary()
+    print(f"エラー発生: {error_summary}")
 ```
 
 ## ディレクトリ構造
@@ -183,6 +220,9 @@ datalake/
 ├── metadata_manager.py                  # メタデータ管理システム
 ├── iceberg_table_manager.py             # Icebergテーブル管理
 ├── schema_mapper.py                     # スキーママッピングエンジン
+├── data_ingestion_orchestrator.py       # データ取り込みオーケストレーター
+├── data_quality_validator.py            # データ品質検証
+├── error_handler.py                     # エラーハンドリング
 ├── config/
 │   ├── datalake_config.yaml            # データレイク設定ファイル
 │   └── dataset_config.yaml             # データセット設定ファイル
@@ -196,7 +236,10 @@ datalake/
 │   ├── test_dataset_selection_manager.py  # 単体テスト (24個)
 │   ├── test_metadata_manager.py           # 単体テスト (23個)
 │   ├── test_iceberg_table_manager.py      # 単体テスト (11個)
-│   └── test_schema_mapper.py              # 単体テスト (37個)
+│   ├── test_schema_mapper.py              # 単体テスト (50個)
+│   ├── test_data_ingestion_orchestrator.py # 単体テスト (15個)
+│   ├── test_data_quality_validator.py     # 単体テスト (26個)
+│   └── test_error_handler.py              # 単体テスト (32個)
 └── README.md                            # このファイル
 ```
 
@@ -261,7 +304,10 @@ python3 -m pytest datalake/tests/test_iceberg_table_manager.py -v
 - MetadataManager: 23個のテスト ✅
 - IcebergTableManager: 11個のテスト ✅
 - SchemaMapper: 50個のテスト ✅
-- **合計: 108個のテスト全て成功**
+- DataIngestionOrchestrator: 15個のテスト ✅
+- DataQualityValidator: 26個のテスト ✅
+- ErrorHandler: 32個のテスト ✅
+- **合計: 184個のテスト全て成功**
 
 ## 使用例の実行
 
@@ -389,5 +435,6 @@ all_data = await orchestrator.fetch_complete_dataset_parallel(
 - ✅ タスク7: Icebergテーブル管理（スキーマ進化含む）
 - ✅ タスク8: データ品質検証
 - ✅ タスク9: チェックポイント - データ品質の確認
+- ✅ タスク10: エラーハンドリング
 
-合計テスト数: 152個（全て成功）
+合計テスト数: 184個（全て成功）
