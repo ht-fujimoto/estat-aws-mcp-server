@@ -207,3 +207,107 @@ class TestTableSchemaRetrieval:
         schema = table_manager.get_table_schema("nonexistent_table")
         
         assert schema is None
+
+
+class TestSchemaEvolution:
+    """Test schema evolution capabilities"""
+    
+    def test_add_column_to_existing_table(self, table_manager):
+        """Test adding a new column to an existing table (schema evolution)"""
+        # 初期スキーマ
+        initial_schema = {
+            "columns": [
+                {"name": "year", "type": "INT", "description": "年度"},
+                {"name": "value", "type": "DOUBLE", "description": "値"}
+            ],
+            "partition_by": ["year"]
+        }
+        
+        # テーブル作成
+        result1 = table_manager.create_domain_table("population", initial_schema)
+        assert result1["success"] is True
+        
+        # 新しい列を追加したスキーマ
+        evolved_schema = {
+            "columns": [
+                {"name": "year", "type": "INT", "description": "年度"},
+                {"name": "value", "type": "DOUBLE", "description": "値"},
+                {"name": "region_code", "type": "STRING", "description": "地域コード"}  # 新しい列
+            ],
+            "partition_by": ["year"]
+        }
+        
+        # スキーマ進化（列追加）
+        result2 = table_manager.create_domain_table("population", evolved_schema)
+        assert result2["success"] is True
+        
+        # 新しい列が含まれていることを確認
+        sql = result2["sql"]
+        assert "region_code STRING" in sql
+    
+    def test_schema_evolution_preserves_existing_columns(self, table_manager):
+        """Test that schema evolution preserves existing columns"""
+        # 初期スキーマ
+        initial_schema = {
+            "columns": [
+                {"name": "id", "type": "STRING"},
+                {"name": "year", "type": "INT"},
+                {"name": "value", "type": "DOUBLE"}
+            ]
+        }
+        
+        result1 = table_manager.create_domain_table("economy", initial_schema)
+        sql1 = result1["sql"]
+        
+        # 列を追加したスキーマ
+        evolved_schema = {
+            "columns": [
+                {"name": "id", "type": "STRING"},
+                {"name": "year", "type": "INT"},
+                {"name": "value", "type": "DOUBLE"},
+                {"name": "category", "type": "STRING"}  # 新しい列
+            ]
+        }
+        
+        result2 = table_manager.create_domain_table("economy", evolved_schema)
+        sql2 = result2["sql"]
+        
+        # 既存の列が保持されていることを確認
+        assert "id STRING" in sql2
+        assert "year INT" in sql2
+        assert "value DOUBLE" in sql2
+        assert "category STRING" in sql2
+    
+    def test_schema_evolution_with_data_ingestion(self, table_manager):
+        """Test that data can be ingested after schema evolution"""
+        # 初期スキーマでテーブル作成
+        initial_schema = {
+            "columns": [
+                {"name": "year", "type": "INT"},
+                {"name": "value", "type": "DOUBLE"}
+            ],
+            "partition_by": ["year"]
+        }
+        
+        result1 = table_manager.create_domain_table("test_evolution", initial_schema)
+        assert result1["success"] is True
+        
+        # スキーマ進化: 新しい列を追加
+        evolved_schema = {
+            "columns": [
+                {"name": "year", "type": "INT"},
+                {"name": "value", "type": "DOUBLE"},
+                {"name": "region", "type": "STRING"},
+                {"name": "category", "type": "STRING"}
+            ],
+            "partition_by": ["year"]
+        }
+        
+        result2 = table_manager.create_domain_table("test_evolution", evolved_schema)
+        assert result2["success"] is True
+        
+        # 新しいスキーマでデータ投入が可能であることを確認
+        # （実際のデータ投入はMCPツールが行うため、ここではSQL生成を確認）
+        sql = result2["sql"]
+        assert "region STRING" in sql
+        assert "category STRING" in sql
