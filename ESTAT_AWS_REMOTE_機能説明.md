@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 主な機能（全11ツール）
+## 🎯 主な機能（全12ツール）
 
 ### 1️⃣ データ検索
 
@@ -61,6 +61,18 @@
 **使い方の例:**
 ```
 「取得したデータをCSVに変換して」
+```
+
+#### 🔗 統計表のホームページリンクを取得
+**できること:**
+- 統計表IDからe-Statのホームページリンクを生成
+- ブラウザで統計表の詳細情報を確認できる
+- データの出典確認や詳細な説明を見るのに便利
+
+**使い方の例:**
+```
+「統計表ID 0002112323 のリンクを教えて」
+→ https://www.e-stat.go.jp/dbview?sid=0002112323
 ```
 
 #### ⬇️ CSVファイルをダウンロード
@@ -190,11 +202,12 @@
 | 4 | `fetch_large_dataset_complete` | 大規模データ完全取得 |
 | 5 | `fetch_dataset_filtered` | 条件絞り込み取得 |
 | 6 | `save_dataset_as_csv` | CSV形式で保存 |
-| 7 | `get_csv_download_url` | ダウンロードURL生成 |
-| 8 | `download_csv_from_s3` | CSVダウンロード |
-| 9 | `transform_to_parquet` | Parquet形式に変換 |
-| 10 | `load_to_iceberg` | データベースに投入 |
-| 11 | `analyze_with_athena` | 統計分析実行 |
+| 7 | `get_estat_table_url` | 統計表ホームページリンク生成 |
+| 8 | `get_csv_download_url` | ダウンロードURL生成 |
+| 9 | `download_csv_from_s3` | CSVダウンロード |
+| 10 | `transform_to_parquet` | Parquet形式に変換 |
+| 11 | `load_to_iceberg` | データベースに投入 |
+| 12 | `analyze_with_athena` | 統計分析実行 |
 
 ---
 

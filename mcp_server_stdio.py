@@ -116,6 +116,14 @@ TOOLS = {
             "output_filename": {"type": "string", "required": False}
         }
     },
+    "save_metadata_as_csv": {
+        "handler": lambda **kwargs: estat_server.save_metadata_as_csv(**kwargs),
+        "description": "データセットのメタデータ情報（カテゴリー情報）をCSV形式でS3に保存",
+        "parameters": {
+            "dataset_id": {"type": "string", "required": True},
+            "output_filename": {"type": "string", "required": False}
+        }
+    },
     "download_csv_from_s3": {
         "handler": lambda **kwargs: estat_server.download_csv_from_s3(**kwargs),
         "description": "S3に保存されたCSVファイルをローカルにダウンロード",

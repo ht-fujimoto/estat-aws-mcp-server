@@ -172,6 +172,62 @@
 }
 ```
 
+### 🔗 get_estat_table_url
+統計表IDからe-Statホームページのリンクを生成します。
+
+**パラメータ:**
+- `dataset_id` (必須): 統計表ID（例: "0002112323"）
+
+**返却値:**
+- 統計表のホームページURL
+- 処理時間
+
+**使用例:**
+```json
+{
+  "dataset_id": "0002112323"
+}
+```
+
+**返却例:**
+```json
+{
+  "success": true,
+  "dataset_id": "0002112323",
+  "table_url": "https://www.e-stat.go.jp/dbview?sid=0002112323",
+  "processing_time_seconds": 0.0001,
+  "message": "統計表のホームページURL: https://www.e-stat.go.jp/dbview?sid=0002112323"
+}
+```
+
+**用途:**
+- データの出典確認
+- 統計表の詳細な説明を確認
+- データの更新履歴を確認
+- 関連する統計表を探す
+
+### 📎 get_csv_download_url
+S3 CSVファイルの署��付きダウンロードURLを生成します（ブラウザまたはcurlでダウンロード可能）。
+
+**パラメータ:**
+- `s3_path` (必須): S3上のCSVファイルパス（s3://bucket/key 形式）
+- `expires_in` (オプション): URL有効期限（秒）（デフォルト: 3600秒 = 1時間）
+- `filename` (オプション): ダウンロード時のファイル名（省略時はS3のキー名を使用）
+
+**返却値:**
+- 署名付きダウンロードURL
+- ファイルサイズ（バイト、MB）
+- 有効期限
+
+**使用例:**
+```json
+{
+  "s3_path": "s3://estat-data-lake/csv/0002070001_20260108_002907.csv",
+  "expires_in": 3600,
+  "filename": "traffic_accidents.csv"
+}
+```
+
 ### ⬇️ download_csv_from_s3
 S3に保存されたCSVファイルをローカルにダウンロードします。
 

@@ -123,6 +123,30 @@ TOOLS = {
             "output_filename": {"type": "string", "required": False}
         }
     },
+    "save_metadata_as_csv": {
+        "handler": lambda **kwargs: estat_server.save_metadata_as_csv(**kwargs),
+        "description": "データセットのメタデータ情報（カテゴリー情報）をCSV形式でS3に保存",
+        "parameters": {
+            "dataset_id": {"type": "string", "required": True},
+            "output_filename": {"type": "string", "required": False}
+        }
+    },
+    "get_estat_table_url": {
+        "handler": lambda **kwargs: estat_server.get_estat_table_url(**kwargs),
+        "description": "統計表IDからe-Statホームページのリンクを生成（例: 0002112323 → https://www.e-stat.go.jp/dbview?sid=0002112323）",
+        "parameters": {
+            "dataset_id": {"type": "string", "required": True}
+        }
+    },
+    "get_csv_download_url": {
+        "handler": lambda **kwargs: estat_server.get_csv_download_url(**kwargs),
+        "description": "S3 CSVファイルの署名付きダウンロードURLを生成（ブラウザまたはcurlでダウンロード可能）",
+        "parameters": {
+            "s3_path": {"type": "string", "required": True},
+            "expires_in": {"type": "integer", "default": 3600},
+            "filename": {"type": "string", "required": False}
+        }
+    },
     "download_csv_from_s3": {
         "handler": lambda **kwargs: estat_server.download_csv_from_s3(**kwargs),
         "description": "S3に保存されたCSVファイルをローカルにダウンロード",

@@ -1,0 +1,173 @@
+[0;34m==========================================
+新しいツールのECSデプロイ
+get_estat_table_url ツール追加
+==========================================[0m
+
+イメージタグ: v2.2.0-20260116-112756
+
+[1;33mStep 1: Dockerイメージをビルド...[0m
+
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.optimized
+#1 transferring dockerfile: 2.26kB 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 ...
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 4.3s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [builder 1/5] FROM docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032
+#5 resolve docker.io/library/python:3.11-slim@sha256:c24e9effa2821a6885165d930d939fec2af0dcf819276138f11dd45e200bd032 0.0s done
+#5 DONE 0.0s
+
+#6 [stage-1 2/7] WORKDIR /app
+#6 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 96.96kB done
+#7 DONE 0.0s
+
+#8 [builder 3/5] RUN apt-get update && apt-get install -y --no-install-recommends     gcc     g++     && rm -rf /var/lib/apt/lists/*
+#8 CACHED
+
+#9 [builder 2/5] WORKDIR /build
+#9 CACHED
+
+#10 [builder 4/5] COPY requirements.txt .
+#10 CACHED
+
+#11 [builder 5/5] RUN pip install --no-cache-dir --user -r requirements.txt
+#11 CACHED
+
+#12 [stage-1 3/7] COPY --from=builder /root/.local /usr/local
+#12 DONE 1.3s
+
+#13 [stage-1 4/7] COPY mcp_servers/ ./mcp_servers/
+#13 DONE 0.0s
+
+#14 [stage-1 5/7] COPY server_mcp_streamable.py .
+#14 DONE 0.0s
+
+#15 [stage-1 6/7] RUN find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true &&     find . -type f -name "*.pyc" -delete &&     find . -type f -name "*.pyo" -delete
+#15 DONE 0.1s
+
+#16 [stage-1 7/7] RUN useradd -m -u 1000 appuser &&     chown -R appuser:appuser /app
+#16 DONE 0.2s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 5.0s done
+#17 exporting manifest sha256:0707d46e1070a05a9c8940e98480c1fd6c4254b97c1567225da0a2c95c2c4fbf
+#17 exporting manifest sha256:0707d46e1070a05a9c8940e98480c1fd6c4254b97c1567225da0a2c95c2c4fbf done
+#17 exporting config sha256:76b59c1685fde0a03ddec6e7a4956f74d268ea564ba9e29a38915ba0543ee021 done
+#17 exporting attestation manifest sha256:12e8a4f9074bcfce85d0617e9f7788470d2d70896ab8d3a62328f5ce52e6ec78 done
+#17 exporting manifest list sha256:579adbe08090bcc59f86f3917b0ef7c39290615539535b6660765be0c11f3bb4 done
+#17 naming to docker.io/library/estat-mcp-server:v2.2.0-20260116-112756 done
+#17 unpacking to docker.io/library/estat-mcp-server:v2.2.0-20260116-112756
+#17 unpacking to docker.io/library/estat-mcp-server:v2.2.0-20260116-112756 1.1s done
+#17 DONE 6.0s
+
+ [33m1 warning found (use docker --debug to expand):
+[0m - UndefinedVar: Usage of undefined variable '$PYTHONPATH' (line 33)
+[0;32m✓ ビルド完了[0m
+
+[0;32mイメージサイズ: 736MB[0m
+
+[1;33mStep 2: ECRにログイン...[0m
+Login Succeeded
+[0;32m✓ ECRログイン成功[0m
+
+[1;33mStep 3: イメージをタグ付け...[0m
+[0;32m✓ タグ付け完了[0m
+
+[1;33mStep 4: ECRにプッシュ...[0m
+  これには数分かかる場合があります...
+
+  プッシュ中: v2.2.0-20260116-112756
+The push refers to repository [639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server]
+d970de0a61ed: Waiting
+72271a3dc427: Waiting
+d637807aba98: Waiting
+d67bedf18e0a: Waiting
+4f4fb700ef54: Waiting
+068949646e5a: Waiting
+02f83f254fbc: Waiting
+40f7c4d3b2a6: Waiting
+518abaec573a: Waiting
+c9a78505001a: Waiting
+0a1d43890fae: Waiting
+c9a78505001a: Waiting
+0a1d43890fae: Layer already exists
+d970de0a61ed: Waiting
+72271a3dc427: Waiting
+d637807aba98: Layer already exists
+d67bedf18e0a: Waiting
+4f4fb700ef54: Layer already exists
+068949646e5a: Layer already exists
+02f83f254fbc: Waiting
+40f7c4d3b2a6: Waiting
+518abaec573a: Layer already exists
+40f7c4d3b2a6: Waiting
+d970de0a61ed: Waiting
+d67bedf18e0a: Layer already exists
+d970de0a61ed: Pushed
+72271a3dc427: Pushed
+40f7c4d3b2a6: Pushed
+c9a78505001a: Pushed
+02f83f254fbc: Pushed
+v2.2.0-20260116-112756: digest: sha256:579adbe08090bcc59f86f3917b0ef7c39290615539535b6660765be0c11f3bb4 size: 856
+[0;32m✓ プッシュ完了: v2.2.0-20260116-112756[0m
+
+  プッシュ中: latest
+The push refers to repository [639135896267.dkr.ecr.ap-northeast-1.amazonaws.com/estat-mcp-server]
+40f7c4d3b2a6: Waiting
+d970de0a61ed: Waiting
+72271a3dc427: Waiting
+0a1d43890fae: Waiting
+068949646e5a: Waiting
+518abaec573a: Waiting
+d637807aba98: Waiting
+c9a78505001a: Waiting
+4f4fb700ef54: Waiting
+02f83f254fbc: Waiting
+d67bedf18e0a: Waiting
+518abaec573a: Waiting
+d637807aba98: Waiting
+c9a78505001a: Layer already exists
+4f4fb700ef54: Waiting
+02f83f254fbc: Waiting
+d67bedf18e0a: Layer already exists
+40f7c4d3b2a6: Waiting
+d970de0a61ed: Waiting
+72271a3dc427: Layer already exists
+0a1d43890fae: Waiting
+068949646e5a: Waiting
+d637807aba98: Layer already exists
+4f4fb700ef54: Layer already exists
+02f83f254fbc: Layer already exists
+40f7c4d3b2a6: Already exists
+d970de0a61ed: Layer already exists
+0a1d43890fae: Layer already exists
+068949646e5a: Layer already exists
+518abaec573a: Layer already exists
+latest: digest: sha256:579adbe08090bcc59f86f3917b0ef7c39290615539535b6660765be0c11f3bb4 size: 856
+[0;32m✓ プッシュ完了: latest[0m
+
+[1;33mStep 5: ECSサービスを更新...[0m
+
+現在のタスク定義: arn:aws:ecs:ap-northeast-1:639135896267:task-definition/estat-mcp-task:23
+タスクファミリー: estat-mcp-task
+
+新しいタスク定義を登録中...
+
+Error parsing parameter 'cli-input-json': Invalid JSON received.
