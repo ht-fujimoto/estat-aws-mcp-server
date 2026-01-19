@@ -24,6 +24,14 @@ Icebergテーブルの作成、スキーマ定義、テーブル操作を管理�
 
 E-statデータ構造の解析、Icebergスキーマへのマッピング、データ型推論と変換を行います。
 
+### 5. データ取り込みオーケストレーター (DataIngestionOrchestrator)
+
+E-stat APIからデータを取得し、Icebergテーブルに投入するプロセスを統合管理します。
+
+### 6. データ品質検証 (DataQualityValidator)
+
+データの品質をチェックし、問題を検出・報告します。
+
 #### DatasetSelectionManager の主な機能
 
 - **設定ファイル管理**: YAMLファイルでデータセット情報を管理
@@ -55,6 +63,14 @@ E-statデータ構造の解析、Icebergスキーマへのマッピング、デ�
 - **列名正規化**: `normalize_column_name()` - 列名を標準形式に正規化
 - **時間解析**: `_extract_year()`, `_extract_year_quarter()`, `_extract_month()` - 年・四半期・月などの時間情報を抽出
 - **値解析**: `_parse_value()` - 文字列を数値に変換
+
+#### DataQualityValidator の主な機能
+
+- **必須列の存在検証**: `validate_required_columns()` - メタデータとの照合
+- **null値チェック**: `check_null_values()` - 主要な次元のnull値検出と警告ログ
+- **数値範囲検証**: `validate_value_ranges()` - メタデータに基づく範囲チェック
+- **重複レコード検出**: `detect_duplicates()` - 次元の組み合わせによる重複検出
+- **不正レコードの隔離**: `quarantine_invalid_records()` - 有効なレコードの処理継続
 
 #### 使用例
 
@@ -371,5 +387,7 @@ all_data = await orchestrator.fetch_complete_dataset_parallel(
 - ✅ タスク5: データ取り込みオーケストレーター（大規模データセット対応含む）
 - ✅ タスク6: チェックポイント - データ取り込みの確認
 - ✅ タスク7: Icebergテーブル管理（スキーマ進化含む）
+- ✅ タスク8: データ品質検証
+- ✅ タスク9: チェックポイント - データ品質の確認
 
-合計テスト数: 126個（全て成功）
+合計テスト数: 152個（全て成功）
