@@ -1067,10 +1067,21 @@ class EStatAWSServer:
             response = self.s3_client.get_object(Bucket=bucket, Key=key)
             data = json.loads(response['Body'].read())
             
-            # データを抽出
-            stats_data = data.get('GET_STATS_DATA', {}).get('STATISTICAL_DATA', {})
-            data_inf = stats_data.get('DATA_INF', {})
-            values = data_inf.get('VALUE', [])
+            # データ形式を判定
+            # 形式1: E-stat API標準形式（GET_STATS_DATA構造）
+            # 形式2: 直接リスト形式（スクリプトで保存したデータ）
+            values = []
+            
+            if isinstance(data, list):
+                # 形式2: 直接リスト形式
+                logger.info("Detected direct list format")
+                values = data
+            elif isinstance(data, dict):
+                # 形式1: E-stat API標準形式
+                logger.info("Detected E-stat API format")
+                stats_data = data.get('GET_STATS_DATA', {}).get('STATISTICAL_DATA', {})
+                data_inf = stats_data.get('DATA_INF', {})
+                values = data_inf.get('VALUE', [])
             
             if not values:
                 return {"success": False, "error": "No data found in JSON"}
@@ -1083,6 +1094,11 @@ class EStatAWSServer:
             dataset_id = key.split('/')[-1].split('_')[0]
             
             for value in values:
+                # 辞書でない場合はスキップ
+                if not isinstance(value, dict):
+                    logger.warning(f"Skipping non-dict value: {type(value)}")
+                    continue
+                
                 # 値を取得（'-'や空文字の場合はNoneに変換）
                 raw_value = value.get('$', '0')
                 try:

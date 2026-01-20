@@ -1,0 +1,4 @@
+# file: /Users/yamashitayukihiro/Desktop/estat_enhanced_mcp_package_20260105_213238/datalake/iceberg_table_manager.py
+# hypothesis_version: 6.141.1
+
+[',\n            ', 'BIGINT', 'DATE', 'ICEBERG', 'STRING', 'TIMESTAMP', 'columns', 'created_at', 'database', 'dataset_id', 'dataset_inventory', 'dataset_name', 'description', 'domain', 'error', 'error_message', 'estat-data-lake', 'estat_db', 'format', 'ingestion_status', 'ingestion_timestamp', 'message', 'name', 'open_date', 'organization', 'parquet', 'partition_by', 's3_iceberg_location', 's3_location', 's3_parquet_location', 's3_raw_location', 'snappy', 'sql', 'success', 'survey_date', 'table_name', 'table_properties', 'table_type', 'total_records', 'type', 'updated_at', 'write_compression']

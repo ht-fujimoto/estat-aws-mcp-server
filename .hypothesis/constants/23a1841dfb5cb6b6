@@ -1,0 +1,4 @@
+# file: /Users/yamashitayukihiro/Desktop/estat_enhanced_mcp_package_20260105_213238/datalake/dataset_selection_manager.py
+# hypothesis_version: 6.141.1
+
+['No pending datasets', 'added_at', 'by_domain', 'by_status', 'completed', 'datasets', 'domain', 'economy', 'error_message', 'failed', 'from', 'generic', 'id', 'name', 'pending', 'population', 'priority', 'processing', 'r', 'status', 'status_history', 'timestamp', 'to', 'total', 'updated_at', 'utf-8', 'w']

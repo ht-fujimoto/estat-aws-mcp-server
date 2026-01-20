@@ -27,9 +27,3 @@ datasets:
   name: 労働力調査
   priority: 8
   status: pending
-- added_at: '2026-01-19T11:31:16.389416'
-  domain: economy
-  id: '0004444444'
-  name: 新規追加データセット
-  priority: 6
-  status: pending

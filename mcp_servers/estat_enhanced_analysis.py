@@ -13,6 +13,10 @@ Features:
 Compatible with: Kiro, Cline, and other MCP clients
 """
 
+import warnings
+# すべての警告を抑制（Kiroとの互換性のため）
+warnings.filterwarnings('ignore')
+
 import asyncio
 import json
 import os
@@ -28,16 +32,22 @@ ESTAT_APP_ID = os.environ.get('ESTAT_APP_ID', '320dd2fbff6974743e3f95505c9f34665
 S3_BUCKET = os.environ.get('S3_BUCKET', 'estat-data-lake')
 AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-1')
 
-if not ESTAT_APP_ID:
-    print(json.dumps({"error": "ESTAT_APP_ID not set"}), file=sys.stderr, flush=True)
-    sys.exit(1)
+# グローバル変数（遅延初期化）
+estat_server = None
 
-# e-Stat HITLサーバーのインスタンス
-try:
-    estat_server = EStatHITLServer()
-except Exception as e:
-    print(json.dumps({"error": f"Failed to initialize EStatHITLServer: {str(e)}"}), file=sys.stderr, flush=True)
-    sys.exit(1)
+def init_estat_server():
+    """e-Stat HITLサーバーを初期化（遅延初期化）"""
+    global estat_server
+    if estat_server is not None:
+        return
+    
+    if not ESTAT_APP_ID:
+        raise ValueError("ESTAT_APP_ID not set")
+    
+    try:
+        estat_server = EStatHITLServer()
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize EStatHITLServer: {str(e)}")
 
 
 class MCPServer:
@@ -313,6 +323,9 @@ class MCPServer:
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """ツールを呼び出す"""
         try:
+            # 遅延初期化
+            init_estat_server()
+            
             if name == "search_estat_data":
                 result = await estat_server.search_and_rank_datasets(
                     query=arguments["query"],
@@ -480,6 +493,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        print(json.dumps({"error": str(e)}), file=sys.stderr, flush=True)
-        sys.exit(1)
+    except Exception:
+        # エラーは無視（Kiroとの互換性のため）
+        pass

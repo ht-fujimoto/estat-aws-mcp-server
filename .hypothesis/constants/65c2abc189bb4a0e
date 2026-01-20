@@ -1,0 +1,4 @@
+# file: /Users/yamashitayukihiro/Desktop/estat_enhanced_mcp_package_20260105_213238/datalake/data_quality_validator.py
+# hypothesis_version: 6.141.1
+
+['No data to validate', 'No duplicates found', 'Validation failed', 'actual_columns', 'count', 'duplicate_count', 'duplicate_details', 'has_duplicates', 'has_nulls', 'index', 'key', 'message', 'missing_columns', 'null', 'null_counts', 'out_of_range_count', 'out_of_range_records', 'reason', 'record', 'results', 'total_records', 'total_validations', 'valid', 'value']

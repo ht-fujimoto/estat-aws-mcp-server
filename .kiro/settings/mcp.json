@@ -90,13 +90,14 @@
         "fetch_dataset_auto",
         "fetch_large_dataset_complete",
         "fetch_dataset_filtered",
-        "transform_to_parquet",
-        "load_to_iceberg",
-        "analyze_with_athena",
         "save_dataset_as_csv",
         "save_metadata_as_csv",
         "get_csv_download_url",
-        "get_estat_table_url"
+        "get_estat_table_url",
+        "download_csv_from_s3",
+        "transform_to_parquet",
+        "load_to_iceberg",
+        "analyze_with_athena"
       ]
     },
     "test-mcp": {
@@ -107,6 +108,30 @@
       "disabled": false,
       "autoApprove": [
         "test_tool"
+      ]
+    },
+    "estat-datalake": {
+      "command": "python3",
+      "args": [
+        "mcp_servers/estat_datalake/server.py"
+      ],
+      "env": {
+        "ESTAT_APP_ID": "320dd2fbff6974743e3f95505c9f346650ab635e",
+        "AWS_REGION": "ap-northeast-1",
+        "DATALAKE_S3_BUCKET": "estat-iceberg-datalake",
+        "DATALAKE_GLUE_DATABASE": "estat_iceberg_db"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "search_estat_data",
+        "fetch_dataset",
+        "load_data_from_s3",
+        "transform_data",
+        "validate_data_quality",
+        "save_to_parquet",
+        "create_iceberg_table",
+        "load_to_iceberg",
+        "ingest_dataset_complete"
       ]
     }
   }

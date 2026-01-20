@@ -1,0 +1,736 @@
+#!/usr/bin/env python3
+"""
+E-stat Data Lake MCP Server (Stdio)
+
+データレイク取り込み専用のMCPサーバー
+既存のE-stat AWS MCPサーバーとは独立して動作
+"""
+
+import os
+import sys
+import json
+import asyncio
+import warnings
+
+# すべての警告を抑制（Kiroとの互換性のため）
+warnings.filterwarnings('ignore')
+
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+
+# 環境変数
+AWS_REGION = os.environ.get('AWS_REGION', 'ap-northeast-1')
+S3_BUCKET = os.environ.get('DATALAKE_S3_BUCKET', 'estat-iceberg-datalake')
+GLUE_DATABASE = os.environ.get('DATALAKE_GLUE_DATABASE', 'estat_iceberg_db')
+DEBUG_MODE = os.environ.get('MCP_DEBUG', '0') == '1'
+
+def debug_log(message: str):
+    """デバッグログ（環境変数MCP_DEBUG=1の場合のみ出力）"""
+    if DEBUG_MODE:
+        print(f"[{datetime.now()}] {message}", file=sys.stderr, flush=True)
+
+
+class EStatDataLakeServer:
+    """E-stat Data Lake MCPサーバー"""
+    
+    def __init__(self):
+        """初期化（遅延初期化）"""
+        # 遅延初期化用のフラグ
+        self._initialized = False
+        self._s3_client = None
+        self._athena_client = None
+        self._schema_mapper = None
+        self._validator = None
+        self._table_manager = None
+        self._metadata_manager = None
+        self._error_handler = None
+        self._config_loader = None
+        self._config = None
+        
+        debug_log("E-stat Data Lake MCP Server created (lazy init)")
+    
+    def _ensure_initialized(self):
+        """必要に応じて初期化"""
+        if self._initialized:
+            return
+        
+        debug_log("Initializing Data Lake components...")
+        
+        # 動的インポート（遅延初期化）
+        import boto3
+        
+        # プロジェクトルートをPYTHONPATHに追加
+        project_root = Path(__file__).parent.parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        
+        from datalake.schema_mapper import SchemaMapper
+        from datalake.data_quality_validator import DataQualityValidator
+        from datalake.iceberg_table_manager import IcebergTableManager
+        from datalake.metadata_manager import MetadataManager
+        from datalake.error_handler import ErrorHandler
+        from datalake.config_loader import ConfigLoader
+        
+        # AWS クライアント
+        self._s3_client = boto3.client('s3', region_name=AWS_REGION)
+        self._athena_client = boto3.client('athena', region_name=AWS_REGION)
+        
+        # データレイクコンポーネント
+        self._schema_mapper = SchemaMapper()
+        self._validator = DataQualityValidator()
+        self._table_manager = IcebergTableManager(
+            self._athena_client,
+            database=GLUE_DATABASE,
+            s3_bucket=S3_BUCKET
+        )
+        self._metadata_manager = MetadataManager(
+            self._athena_client,
+            database=GLUE_DATABASE
+        )
+        self._error_handler = ErrorHandler()
+        
+        # 設定ローダー
+        config_path = project_root / "datalake" / "config" / "datalake_config.yaml"
+        self._config_loader = ConfigLoader(str(config_path))
+        self._config = self._config_loader.config
+        
+        self._initialized = True
+        debug_log("Data Lake components initialized")
+    
+    @property
+    def s3_client(self):
+        self._ensure_initialized()
+        return self._s3_client
+    
+    @property
+    def athena_client(self):
+        self._ensure_initialized()
+        return self._athena_client
+    
+    @property
+    def schema_mapper(self):
+        self._ensure_initialized()
+        return self._schema_mapper
+    
+    @property
+    def validator(self):
+        self._ensure_initialized()
+        return self._validator
+    
+    @property
+    def table_manager(self):
+        self._ensure_initialized()
+        return self._table_manager
+    
+    @property
+    def metadata_manager(self):
+        self._ensure_initialized()
+        return self._metadata_manager
+    
+    @property
+    def error_handler(self):
+        self._ensure_initialized()
+        return self._error_handler
+    
+    @property
+    def config(self):
+        self._ensure_initialized()
+        return self._config
+    
+    async def load_data_from_s3(self, s3_path: str) -> Dict[str, Any]:
+        """S3からデータを読み込む"""
+        try:
+            debug_log(f"Loading data from S3: {s3_path}")
+            
+            # S3パスを解析
+            if s3_path.startswith("s3://"):
+                s3_path = s3_path[5:]
+            
+            parts = s3_path.split("/", 1)
+            bucket = parts[0]
+            key = parts[1]
+            
+            # S3からデータ取得
+            response = self.s3_client.get_object(Bucket=bucket, Key=key)
+            data = json.loads(response['Body'].read().decode('utf-8'))
+            
+            record_count = len(data) if isinstance(data, list) else 1
+            
+            debug_log(f"Successfully loaded {record_count} records from S3")
+            
+            return {
+                "success": True,
+                "s3_path": f"s3://{bucket}/{key}",
+                "record_count": record_count,
+                "sample": data[:3] if isinstance(data, list) and len(data) > 3 else data,
+                "message": f"Successfully loaded {record_count} records from S3"
+            }
+            
+        except Exception as e:
+            debug_log(f"Error loading data from S3: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to load data from S3: {e}"
+            }
+    
+    async def transform_data(
+        self,
+        s3_input_path: str,
+        domain: str,
+        dataset_id: str
+    ) -> Dict[str, Any]:
+        """データをIceberg形式に変換"""
+        try:
+            debug_log(f"Transforming data: domain={domain}, dataset_id={dataset_id}")
+            
+            # S3からデータ読み込み
+            if s3_input_path.startswith("s3://"):
+                s3_input_path = s3_input_path[5:]
+            parts = s3_input_path.split("/", 1)
+            bucket = parts[0]
+            key = parts[1]
+            
+            response = self.s3_client.get_object(Bucket=bucket, Key=key)
+            data = json.loads(response['Body'].read().decode('utf-8'))
+            
+            # データ変換
+            transformed_data = []
+            for record in data:
+                try:
+                    mapped_record = self.schema_mapper.map_estat_to_iceberg(
+                        record,
+                        domain,
+                        dataset_id=dataset_id
+                    )
+                    transformed_data.append(mapped_record)
+                except Exception as e:
+                    debug_log(f"Record transformation error: {e}")
+                    continue
+            
+            debug_log(f"Transformed {len(transformed_data)} records")
+            
+            return {
+                "success": True,
+                "domain": domain,
+                "dataset_id": dataset_id,
+                "input_records": len(data),
+                "output_records": len(transformed_data),
+                "sample": transformed_data[:3] if len(transformed_data) > 3 else transformed_data,
+                "message": f"Successfully transformed {len(transformed_data)} records"
+            }
+            
+        except Exception as e:
+            debug_log(f"Error transforming data: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to transform data: {e}"
+            }
+    
+    async def validate_data_quality(
+        self,
+        s3_input_path: str,
+        domain: str,
+        dataset_id: str
+    ) -> Dict[str, Any]:
+        """データ品質を検証"""
+        try:
+            debug_log(f"Validating data quality: {dataset_id}")
+            
+            # データ変換
+            if s3_input_path.startswith("s3://"):
+                s3_input_path = s3_input_path[5:]
+            parts = s3_input_path.split("/", 1)
+            bucket = parts[0]
+            key = parts[1]
+            
+            response = self.s3_client.get_object(Bucket=bucket, Key=key)
+            data = json.loads(response['Body'].read().decode('utf-8'))
+            
+            transformed_data = []
+            for record in data:
+                try:
+                    mapped_record = self.schema_mapper.map_estat_to_iceberg(
+                        record,
+                        domain,
+                        dataset_id=dataset_id
+                    )
+                    transformed_data.append(mapped_record)
+                except Exception:
+                    continue
+            
+            # 必須列の検証
+            required_columns = ["dataset_id", "value"]
+            validation_result = self.validator.validate_required_columns(
+                transformed_data,
+                required_columns
+            )
+            
+            # null値チェック
+            null_check = self.validator.check_null_values(
+                transformed_data,
+                ["dataset_id"]
+            )
+            
+            # 検証結果
+            is_valid = validation_result["valid"] and not null_check["has_nulls"]
+            
+            debug_log(f"Validation complete: valid={is_valid}")
+            
+            return {
+                "success": True,
+                "is_valid": is_valid,
+                "dataset_id": dataset_id,
+                "record_count": len(transformed_data),
+                "required_columns_check": validation_result,
+                "null_values_check": null_check,
+                "message": "Validation passed" if is_valid else "Validation failed"
+            }
+            
+        except Exception as e:
+            debug_log(f"Error validating data: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to validate data: {e}"
+            }
+    
+    async def save_to_parquet(
+        self,
+        s3_input_path: str,
+        s3_output_path: str,
+        domain: str,
+        dataset_id: str
+    ) -> Dict[str, Any]:
+        """Parquet形式でS3に保存"""
+        try:
+            debug_log(f"Saving to Parquet: {s3_output_path}")
+            
+            # データ変換
+            if s3_input_path.startswith("s3://"):
+                s3_input_path = s3_input_path[5:]
+            parts = s3_input_path.split("/", 1)
+            bucket = parts[0]
+            key = parts[1]
+            
+            response = self.s3_client.get_object(Bucket=bucket, Key=key)
+            data = json.loads(response['Body'].read().decode('utf-8'))
+            
+            transformed_data = []
+            for record in data:
+                try:
+                    mapped_record = self.schema_mapper.map_estat_to_iceberg(
+                        record,
+                        domain,
+                        dataset_id=dataset_id
+                    )
+                    transformed_data.append(mapped_record)
+                except Exception:
+                    continue
+            
+            # Parquet保存
+            import pandas as pd
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+            import tempfile
+            
+            df = pd.DataFrame(transformed_data)
+            table = pa.Table.from_pandas(df)
+            
+            # S3パスを解析
+            if s3_output_path.startswith("s3://"):
+                s3_output_path = s3_output_path[5:]
+            
+            output_parts = s3_output_path.split("/", 1)
+            output_bucket = output_parts[0]
+            output_key = output_parts[1]
+            
+            # 一時ファイルに書き込み
+            with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as tmp:
+                pq.write_table(table, tmp.name)
+                tmp_path = tmp.name
+            
+            # S3にアップロード
+            self.s3_client.upload_file(tmp_path, output_bucket, output_key)
+            
+            # 一時ファイルを削除
+            import os
+            os.unlink(tmp_path)
+            
+            debug_log(f"Successfully saved {len(transformed_data)} records to Parquet")
+            
+            return {
+                "success": True,
+                "s3_output_path": f"s3://{output_bucket}/{output_key}",
+                "record_count": len(transformed_data),
+                "message": f"Successfully saved {len(transformed_data)} records to Parquet"
+            }
+            
+        except Exception as e:
+            debug_log(f"Error saving to Parquet: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to save to Parquet: {e}"
+            }
+    
+    async def create_iceberg_table(self, domain: str) -> Dict[str, Any]:
+        """Icebergテーブルを作成"""
+        try:
+            debug_log(f"Creating Iceberg table for domain: {domain}")
+            
+            # スキーマ取得
+            schema = self.schema_mapper.get_schema(domain)
+            
+            # テーブル作成
+            result = self.table_manager.create_domain_table(domain, schema)
+            
+            debug_log(f"Table creation result: {result['message']}")
+            
+            return result
+            
+        except Exception as e:
+            debug_log(f"Error creating Iceberg table: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to create Iceberg table: {e}"
+            }
+    
+    async def ingest_dataset_complete(
+        self,
+        s3_input_path: str,
+        dataset_id: str,
+        dataset_name: str,
+        domain: str
+    ) -> Dict[str, Any]:
+        """データセットの完全取り込み（全ステップ実行）"""
+        try:
+            debug_log(f"Starting complete ingestion: {dataset_id}")
+            
+            start_time = datetime.now()
+            
+            # ステップ1: データ読み込み
+            debug_log("Step 1: Loading data from S3")
+            load_result = await self.load_data_from_s3(s3_input_path)
+            if not load_result["success"]:
+                return load_result
+            
+            # ステップ2: データ変換
+            debug_log("Step 2: Transforming data")
+            transform_result = await self.transform_data(s3_input_path, domain, dataset_id)
+            if not transform_result["success"]:
+                return transform_result
+            
+            # ステップ3: データ品質検証
+            debug_log("Step 3: Validating data quality")
+            validation_result = await self.validate_data_quality(s3_input_path, domain, dataset_id)
+            if not validation_result["success"] or not validation_result["is_valid"]:
+                return {
+                    "success": False,
+                    "message": "Data quality validation failed",
+                    "validation_result": validation_result
+                }
+            
+            # ステップ4: Parquet保存
+            debug_log("Step 4: Saving to Parquet")
+            s3_output_path = f"s3://{S3_BUCKET}/parquet/{domain}/{dataset_id}.parquet"
+            save_result = await self.save_to_parquet(s3_input_path, s3_output_path, domain, dataset_id)
+            if not save_result["success"]:
+                return save_result
+            
+            # ステップ5: Icebergテーブル作成（存在しない場合）
+            debug_log("Step 5: Creating Iceberg table (if not exists)")
+            table_result = await self.create_iceberg_table(domain)
+            
+            # ステップ6: メタデータ登録
+            debug_log("Step 6: Registering metadata")
+            dataset_info = {
+                "dataset_id": dataset_id,
+                "dataset_name": dataset_name,
+                "domain": domain,
+                "status": "completed",
+                "timestamp": datetime.now().isoformat(),
+                "table_name": f"{domain}_data",
+                "s3_raw_location": s3_input_path,
+                "s3_parquet_location": s3_output_path,
+                "s3_iceberg_location": f"s3://{S3_BUCKET}/iceberg-tables/{domain}/",
+                "total_records": save_result["record_count"]
+            }
+            
+            metadata_registered = self.metadata_manager.register_dataset(dataset_info)
+            
+            processing_time = (datetime.now() - start_time).total_seconds()
+            
+            debug_log(f"Complete ingestion finished in {processing_time:.1f}s")
+            
+            return {
+                "success": True,
+                "dataset_id": dataset_id,
+                "dataset_name": dataset_name,
+                "domain": domain,
+                "record_count": save_result["record_count"],
+                "s3_parquet_location": s3_output_path,
+                "processing_time": f"{processing_time:.1f}秒",
+                "metadata_registered": metadata_registered,
+                "message": f"Successfully ingested {save_result['record_count']} records"
+            }
+            
+        except Exception as e:
+            debug_log(f"Error in complete ingestion: {e}")
+            import traceback
+            if DEBUG_MODE: traceback.print_exc(file=sys.stderr)
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to ingest dataset: {e}"
+            }
+
+
+# グローバルサーバーインスタンス
+datalake_server = None
+
+def init_datalake_server():
+    """データレイクサーバーを初期化（遅延初期化）"""
+    global datalake_server
+    if datalake_server is not None:
+        return
+    
+    try:
+        datalake_server = EStatDataLakeServer()
+        debug_log("Data Lake Server instance created")
+    except Exception as e:
+        debug_log(f"Error creating Data Lake Server: {e}")
+        # エラーを再スローせず、サーバーインスタンスをNoneのままにする
+        # これにより、Kiroの起動は成功し、実際の使用時にエラーが報告される
+
+
+# ツールマッピング
+TOOLS = {
+    "load_data_from_s3": {
+        "handler": lambda **kwargs: datalake_server.load_data_from_s3(**kwargs),
+        "description": "S3からE-statデータを読み込む",
+        "parameters": {
+            "s3_path": {"type": "string", "required": True}
+        }
+    },
+    "transform_data": {
+        "handler": lambda **kwargs: datalake_server.transform_data(**kwargs),
+        "description": "E-statデータをIceberg形式に変換",
+        "parameters": {
+            "s3_input_path": {"type": "string", "required": True},
+            "domain": {"type": "string", "required": True},
+            "dataset_id": {"type": "string", "required": True}
+        }
+    },
+    "validate_data_quality": {
+        "handler": lambda **kwargs: datalake_server.validate_data_quality(**kwargs),
+        "description": "データ品質を検証",
+        "parameters": {
+            "s3_input_path": {"type": "string", "required": True},
+            "domain": {"type": "string", "required": True},
+            "dataset_id": {"type": "string", "required": True}
+        }
+    },
+    "save_to_parquet": {
+        "handler": lambda **kwargs: datalake_server.save_to_parquet(**kwargs),
+        "description": "Parquet形式でS3に保存",
+        "parameters": {
+            "s3_input_path": {"type": "string", "required": True},
+            "s3_output_path": {"type": "string", "required": True},
+            "domain": {"type": "string", "required": True},
+            "dataset_id": {"type": "string", "required": True}
+        }
+    },
+    "create_iceberg_table": {
+        "handler": lambda **kwargs: datalake_server.create_iceberg_table(**kwargs),
+        "description": "Icebergテーブルを作成",
+        "parameters": {
+            "domain": {"type": "string", "required": True}
+        }
+    },
+    "ingest_dataset_complete": {
+        "handler": lambda **kwargs: datalake_server.ingest_dataset_complete(**kwargs),
+        "description": "データセットの完全取り込み（全ステップ実行）",
+        "parameters": {
+            "s3_input_path": {"type": "string", "required": True},
+            "dataset_id": {"type": "string", "required": True},
+            "dataset_name": {"type": "string", "required": True},
+            "domain": {"type": "string", "required": True}
+        }
+    }
+}
+
+
+async def handle_jsonrpc_message(data):
+    """JSON-RPCメッセージを処理"""
+    method = data.get('method')
+    params = data.get('params', {})
+    request_id = data.get('id')
+    
+    debug_log(f"JSONRPC Request: method={method}, id={request_id}")
+    
+    # 通知メッセージ（idがない）は無視
+    if request_id is None:
+        debug_log(f"Notification received (no response needed): {method}")
+        return None
+    
+    # initialize メソッド
+    if method == 'initialize':
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {}
+                },
+                "serverInfo": {
+                    "name": "estat-datalake",
+                    "version": "1.0.0"
+                }
+            }
+        }
+    
+    # tools/list メソッド
+    elif method == 'tools/list':
+        tools_list = []
+        for tool_name, tool_info in TOOLS.items():
+            tools_list.append({
+                "name": tool_name,
+                "description": tool_info["description"],
+                "inputSchema": {
+                    "type": "object",
+                    "properties": tool_info["parameters"]
+                }
+            })
+        
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "tools": tools_list
+            }
+        }
+    
+    # tools/call メソッド
+    elif method == 'tools/call':
+        tool_name = params.get('name')
+        arguments = params.get('arguments', {})
+        
+        # サーバーを初期化（まだ初期化されていない場合）
+        if datalake_server is None:
+            init_datalake_server()
+        
+        # 初期化に失敗した場合
+        if datalake_server is None:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32603,
+                    "message": "Data Lake Server initialization failed"
+                }
+            }
+        
+        if tool_name not in TOOLS:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Tool not found: {tool_name}"
+                }
+            }
+        
+        # ツールを実行
+        tool_handler = TOOLS[tool_name]["handler"]
+        try:
+            result = await tool_handler(**arguments)
+            
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(result, ensure_ascii=False)
+                        }
+                    ]
+                }
+            }
+        
+        except Exception as e:
+            debug_log(f"Tool execution error: {e}")
+            import traceback
+            if DEBUG_MODE: traceback.print_exc(file=sys.stderr)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32603,
+                    "message": f"Tool execution failed: {str(e)}"
+                }
+            }
+    
+    else:
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32601,
+                "message": f"Method not found: {method}"
+            }
+        }
+
+
+async def main():
+    """メインループ"""
+    # サーバーインスタンスは遅延初期化（ツール呼び出し時に初期化）
+    debug_log("MCP Server ready (stdio)")
+    
+    # 標準入力からJSON-RPCメッセージを読み取り
+    while True:
+        try:
+            line = sys.stdin.readline()
+            if not line:
+                break
+            
+            line = line.strip()
+            if not line:
+                continue
+            
+            # JSON-RPCメッセージをパース
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError as e:
+                debug_log(f"JSON parse error: {e}")
+                continue
+            
+            # メッセージを処理
+            response = await handle_jsonrpc_message(data)
+            
+            # レスポンスを送信（通知メッセージの場合はNone）
+            if response is not None:
+                print(json.dumps(response, ensure_ascii=False))
+                sys.stdout.flush()
+                
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            debug_log(f"Unexpected error: {e}")
+            import traceback
+            if DEBUG_MODE: traceback.print_exc(file=sys.stderr)
+
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
+    except Exception:
+        # エラーは無視（Kiroとの互換性のため）
+        pass

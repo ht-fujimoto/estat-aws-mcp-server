@@ -43,7 +43,7 @@ def load_config():
 def call_mcp_tool(tool_name: str, arguments: dict):
     """MCPサーバーのツールを呼び出す"""
     # MCP over HTTPエンドポイント
-    mcp_url = os.getenv('MCP_SERVER_URL', 'https://estat-mcp.snowmole.com')
+    mcp_url = os.getenv('MCP_SERVER_URL', 'https://estat-mcp.snowmole.co.jp')
     
     try:
         response = requests.post(
